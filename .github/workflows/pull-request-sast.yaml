@@ -24,3 +24,4 @@ jobs:
         with:
           scan-type: 'config'
           exit-code: '1'
+          version: 'v0.69.2'  #remove once trivy-action 0.34.2 is released (aquasecurity/trivy-action#517)
