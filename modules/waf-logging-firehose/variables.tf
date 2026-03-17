@@ -69,3 +69,13 @@ variable "manage_s3_bucket_policy" {
   type    = bool
   default = false
 }
+
+variable "cloudwatch_kms_key_arn" {
+  description = "KMS key ARN for CloudWatch log group encryption."
+  type        = string
+
+  validation {
+    condition     = var.cloudwatch_kms_key_arn != null
+    error_message = "cloudwatch_kms_key_arn must be set — CloudWatch log groups must use a CMK."
+  }
+}

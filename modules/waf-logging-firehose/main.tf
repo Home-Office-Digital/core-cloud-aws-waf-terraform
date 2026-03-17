@@ -38,6 +38,7 @@ resource "aws_iam_role" "firehose" {
 resource "aws_cloudwatch_log_group" "firehose" {
   name              = "/aws/kinesisfirehose/${var.name_prefix}-${var.environment}-waf"
   retention_in_days = var.firehose_error_log_retention_days
+  kms_key_id        = var.cloudwatch_kms_key_arn
   tags              = local.common_tags
 }
 
