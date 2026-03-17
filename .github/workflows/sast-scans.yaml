@@ -1,0 +1,34 @@
+name: SAST Scans
+
+on:
+  workflow_call:
+    secrets:
+      sonar_token:
+        required: true
+      sonar_host_url:
+        required: true
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  id-token: write
+  actions: read
+  security-events: write
+
+jobs:
+  checkov-scan:
+    name: Run Checkov Scan
+    uses: UKHomeOffice/core-cloud-workflow-checkov-sast-scan/.github/workflows/checkov-scan-base.yaml@f514754d452759b473de7221f084ad11ab686cd8 #1.12.0
+    with:
+      path: '.'
+  sonarqube-scan:
+    name: Run SonarQube Scan
+    uses: UKHomeOffice/core-cloud-workflow-sonarqube-scan/.github/workflows/sonarqube-scan.yaml@6338df7443d336b94e90ff8c71fba9ed258b1654 #1.1.7
+    secrets:
+      sonar_token: ${{ secrets.sonar_token }}
+      sonar_host_url: ${{ secrets.sonar_host_url }}
