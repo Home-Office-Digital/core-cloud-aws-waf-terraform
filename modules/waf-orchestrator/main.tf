@@ -1,19 +1,29 @@
 locals {
 
-  tenant_defined_exclusions = distinct(flatten([
+  # Tenant accounts only affect platform exclusion if the tenant is enabled
+  # and resolves to at least one effective slot.
+  active_tenant_defined_exclusions = distinct(flatten([
     for tenant_name, tenant in var.tenants :
-    try(tenant.exclude_account_ids, [])
+    (
+      try(tenant.enabled, true) && length(local.tenant_slots[tenant_name]) > 0
+      ? try(tenant.exclude_account_ids, [])
+      : []
+    )
   ]))
 
-  tenant_included_accounts = distinct(flatten([
+  active_tenant_included_accounts = distinct(flatten([
     for tenant_name, tenant in var.tenants :
-    try(tenant.include_account_ids, [])
+    (
+      try(tenant.enabled, true) && length(local.tenant_slots[tenant_name]) > 0
+      ? try(tenant.include_account_ids, [])
+      : []
+    )
   ]))
 
   effective_platform_exclude = distinct(concat(
     var.platform_exclude_account_ids,
-    local.tenant_defined_exclusions,
-    local.tenant_included_accounts
+    local.active_tenant_defined_exclusions,
+    local.active_tenant_included_accounts
   ))
 
   ############################################################
@@ -109,20 +119,22 @@ locals {
 
 ############################################################
 # TENANT ACCOUNT VALIDATION
-# Ensures all enabled tenants have include_account_ids set
-# Prevents accidental org-wide tenant policies
+# Validate only tenants that would actually create policies.
+# Empty or inactive tenant definitions should not fail account-scope validation.
 ############################################################
 resource "terraform_data" "tenant_account_validation" {
   for_each = {
     for tenant_name, tenant in var.tenants :
     tenant_name => tenant
-    if try(tenant.enabled, true) && length(try(tenant.include_account_ids, [])) == 0
+    if try(tenant.enabled, true)
+    && length(local.tenant_slots[tenant_name]) > 0
+    && length(try(tenant.include_account_ids, [])) == 0
   }
 
   lifecycle {
     precondition {
-      condition     = length(each.key) == 0  # always false — each.key is never empty
-      error_message = "Tenant '${each.key}' must have include_account_ids set. Tenant policies cannot be org-wide — this prevents unintended WAF attachment across all accounts."
+      condition     = each.value == null
+      error_message = "Tenant '${each.key}' resolves to one or more active slots but does not define include_account_ids. Tenant policies must be account-scoped and cannot be org-wide."
     }
   }
 }
