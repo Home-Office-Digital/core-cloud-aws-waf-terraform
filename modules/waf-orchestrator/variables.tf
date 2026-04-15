@@ -90,6 +90,12 @@ variable "platform" {
       trusted_ip_sets   = optional(any, {}) # global + per-slot keys; uses "allowlist" list
       trusted_countries = optional(any, {}) # global + per-slot keys; list(string)
 
+      # TRUSTED PATH LABELS (label-only -> platform:trusted:path)
+      trusted_path_labels = optional(map(object({
+        paths  = list(string)
+        method = optional(string, "POST")
+      })), {})
+
       # BLOCKS
       block_ip_sets   = optional(any, {}) # global + per-slot keys; uses "blocklist" list
       block_countries = optional(any, {}) # global + per-slot keys; list(string)
