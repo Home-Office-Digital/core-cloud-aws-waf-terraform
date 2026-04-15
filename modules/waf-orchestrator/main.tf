@@ -161,6 +161,8 @@ module "essential_rule_groups" {
   environment = var.environment
   slot        = each.value
   tags        = var.tags
+
+  trusted_path_label_key = "awswaf:${data.aws_caller_identity.current.account_id}:rulegroup:${var.name_prefix}-platform-baseline-${each.value}:platform:trusted:path"
 }
 
 ############################################################

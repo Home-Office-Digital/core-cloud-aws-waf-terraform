@@ -56,3 +56,9 @@ variable "body_size_bytes" {
   default     = 8192  # 8KB — matches WAF's default body inspection limit
   description = "Maximum request body size in bytes. AWS WAF inspects up to 8KB by default. Requests exceeding this are blocked via oversizeFields handling regardless of this value."
 }
+
+variable "trusted_path_label_key" {
+  description = "Fully qualified WAF label key for trusted path matches from the baseline rule group."
+  type        = string
+  default     = null
+}
