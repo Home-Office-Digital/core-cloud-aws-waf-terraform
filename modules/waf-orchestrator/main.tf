@@ -29,7 +29,7 @@ locals {
   ############################################################
   # Slots per tenant:
   # - if tenant.slots set -> use it
-  # - else -> fall back to var.slots
+  # - else -> derive from populated tenant config
   ############################################################
   tenant_slots = {
     for tenant_name, tenant in var.tenants :
@@ -113,6 +113,16 @@ locals {
         try(var.platform.baseline.block_countries.global, []),
         try(var.platform.baseline.block_countries[slot], [])
       ))
+
+      trusted_path_label_paths = distinct(concat(
+        try(var.platform.baseline.trusted_path_labels.global.paths, []),
+        try(var.platform.baseline.trusted_path_labels[slot].paths, [])
+      ))
+
+      trusted_path_label_method = try(
+        var.platform.baseline.trusted_path_labels[slot].method,
+        try(var.platform.baseline.trusted_path_labels.global.method, "POST")
+      )
     }
   }
 }
@@ -221,6 +231,9 @@ module "platform_baseline" {
 
   block_ipset_arn = try(aws_wafv2_ip_set.platform_baseline_block[each.key].arn, null)
   block_countries = each.value.block_countries
+
+  trusted_path_label_paths  = each.value.trusted_path_label_paths
+  trusted_path_label_method = each.value.trusted_path_label_method
 
   healthcheck_allow_ipset_arn = try(aws_wafv2_ip_set.platform_healthcheck_allow[each.key].arn, null)
   curl_allow_ipset_arn        = try(aws_wafv2_ip_set.platform_curl_allow[each.key].arn, null)

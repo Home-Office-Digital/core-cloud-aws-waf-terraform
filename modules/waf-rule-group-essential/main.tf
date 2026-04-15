@@ -20,10 +20,11 @@ resource "aws_wafv2_rule_group" "this" {
   }
 
   ############################################################
-  # Global Rate - skip platform:trusted
+  # Global Rate - skip trusted source IPs
   ############################################################
   dynamic "rule" {
     for_each = var.enable_global_rate ? [1] : []
+
     content {
       name     = "rate-global"
       priority = 10
@@ -59,10 +60,11 @@ resource "aws_wafv2_rule_group" "this" {
   }
 
   ############################################################
-  # GET Rate - skip platform:trusted
+  # GET Rate - skip trusted source IPs
   ############################################################
   dynamic "rule" {
     for_each = var.enable_get_rate ? [1] : []
+
     content {
       name     = "rate-get"
       priority = 20
@@ -78,7 +80,6 @@ resource "aws_wafv2_rule_group" "this" {
 
           scope_down_statement {
             and_statement {
-              # Only GET
               statement {
                 byte_match_statement {
                   field_to_match {
@@ -94,7 +95,6 @@ resource "aws_wafv2_rule_group" "this" {
                 }
               }
 
-              # NOT platform:trusted
               statement {
                 not_statement {
                   statement {
@@ -119,10 +119,11 @@ resource "aws_wafv2_rule_group" "this" {
   }
 
   ############################################################
-  # WRITE Rate - skip platform:trusted
+  # WRITE Rate - skip trusted source IPs and trusted paths
   ############################################################
   dynamic "rule" {
     for_each = var.enable_write_rate ? [1] : []
+
     content {
       name     = "rate-write"
       priority = 30
@@ -138,7 +139,6 @@ resource "aws_wafv2_rule_group" "this" {
 
           scope_down_statement {
             and_statement {
-              # Only write methods
               statement {
                 or_statement {
                   statement {
@@ -148,12 +148,14 @@ resource "aws_wafv2_rule_group" "this" {
                       }
                       positional_constraint = "EXACTLY"
                       search_string         = "POST"
+
                       text_transformation {
                         priority = 0
                         type     = "NONE"
                       }
                     }
                   }
+
                   statement {
                     byte_match_statement {
                       field_to_match {
@@ -161,12 +163,14 @@ resource "aws_wafv2_rule_group" "this" {
                       }
                       positional_constraint = "EXACTLY"
                       search_string         = "PUT"
+
                       text_transformation {
                         priority = 0
                         type     = "NONE"
                       }
                     }
                   }
+
                   statement {
                     byte_match_statement {
                       field_to_match {
@@ -174,6 +178,7 @@ resource "aws_wafv2_rule_group" "this" {
                       }
                       positional_constraint = "EXACTLY"
                       search_string         = "DELETE"
+
                       text_transformation {
                         priority = 0
                         type     = "NONE"
@@ -183,13 +188,23 @@ resource "aws_wafv2_rule_group" "this" {
                 }
               }
 
-              # NOT platform:trusted
               statement {
                 not_statement {
                   statement {
                     label_match_statement {
                       scope = "LABEL"
                       key   = "platform:trusted"
+                    }
+                  }
+                }
+              }
+
+              statement {
+                not_statement {
+                  statement {
+                    label_match_statement {
+                      scope = "LABEL"
+                      key   = "platform:trusted:path"
                     }
                   }
                 }
@@ -208,10 +223,11 @@ resource "aws_wafv2_rule_group" "this" {
   }
 
   ############################################################
-  # Body size - skip platform:trusted
+  # Body size - skip trusted source IPs and trusted paths
   ############################################################
   dynamic "rule" {
     for_each = var.enable_body_size ? [1] : []
+
     content {
       name     = "body-size"
       priority = 40
@@ -222,13 +238,15 @@ resource "aws_wafv2_rule_group" "this" {
 
       statement {
         and_statement {
-          # Too large
           statement {
             size_constraint_statement {
               comparison_operator = "GT"
               size                = var.body_size_bytes
+
               field_to_match {
-                body {}
+                body {
+                  oversize_handling = "MATCH"
+                }
               }
 
               text_transformation {
@@ -238,13 +256,23 @@ resource "aws_wafv2_rule_group" "this" {
             }
           }
 
-          # NOT platform:trusted
           statement {
             not_statement {
               statement {
                 label_match_statement {
                   scope = "LABEL"
                   key   = "platform:trusted"
+                }
+              }
+            }
+          }
+
+          statement {
+            not_statement {
+              statement {
+                label_match_statement {
+                  scope = "LABEL"
+                  key   = "platform:trusted:path"
                 }
               }
             }

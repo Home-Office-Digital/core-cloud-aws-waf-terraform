@@ -10,6 +10,16 @@ variable "slot" {
   type = string
 }
 
+variable "trusted_path_label_paths" {
+  type    = list(string)
+  default = []
+}
+
+variable "trusted_path_label_method" {
+  type    = string
+  default = "POST"
+}
+
 ############################################################
 # TRUSTED (LABEL ONLY)
 ############################################################
