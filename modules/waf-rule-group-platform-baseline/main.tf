@@ -1,5 +1,38 @@
 locals {
   name = "${var.name_prefix}-platform-baseline-${var.slot}"
+
+  # Build a map of only those rules that carry source CIDRs, keyed by rule index.
+  # Used to create one ip_set per rule that needs source IP restriction.
+  trusted_path_source_ip_sets = {
+    for idx, rule in var.trusted_path_rules :
+    tostring(idx) => rule.source_ipv4_cidrs
+    if length(try(rule.source_ipv4_cidrs, [])) > 0
+  }
+}
+
+############################################################
+# Trusted path source IP sets (created internally so ARNs
+# are always resolved within the same module, avoiding the
+# (known after apply) problem that causes and_statement {})
+############################################################
+resource "aws_wafv2_ip_set" "trusted_path_source" {
+  for_each = local.trusted_path_source_ip_sets
+
+  name               = "${local.name}-trusted-path-source-${each.key}"
+  description        = "Trusted path source CIDRs for ${var.slot} rule ${each.key}"
+  scope              = "REGIONAL"
+  ip_address_version = "IPV4"
+  addresses          = each.value
+
+  tags = merge(var.tags, {
+    "waf:policy" = "platform"
+    "waf:slot"   = var.slot
+    "waf:type"   = "trusted-path-source"
+  })
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 resource "aws_wafv2_rule_group" "this" {
@@ -7,6 +40,8 @@ resource "aws_wafv2_rule_group" "this" {
   description = "Platform baseline rule group for slot ${var.slot}"
   scope       = "REGIONAL"
   capacity    = 50
+
+  depends_on = [aws_wafv2_ip_set.trusted_path_source]
 
   ############################################################
   # Rule 0: Allow ALB Health Checks (explicit allow)
@@ -149,17 +184,17 @@ resource "aws_wafv2_rule_group" "this" {
   }
 
   ############################################################
-  # Rule 3: Platform Trusted Paths (label-only)
-  # Labels known webhook or operational paths as
-  # platform:trusted:path for downstream rules to
-  # selectively skip enforcement.
+  # Rule 20+: Platform Trusted Paths (label-only) - single path
   ############################################################
   dynamic "rule" {
-    for_each = length(var.trusted_path_label_paths) > 0 ? [1] : []
+    for_each = {
+      for idx, rule in var.trusted_path_rules :
+      tostring(idx) => rule if length(try(rule.paths, [])) == 1
+    }
 
     content {
-      name     = "platform-trusted-path"
-      priority = 3
+      name     = "platform-trusted-path-${rule.key}"
+      priority = 20 + tonumber(rule.key)
 
       action {
         count {}
@@ -173,7 +208,7 @@ resource "aws_wafv2_rule_group" "this" {
         and_statement {
           statement {
             byte_match_statement {
-              search_string         = upper(var.trusted_path_label_method)
+              search_string         = upper(rule.value.method)
               positional_constraint = "EXACTLY"
 
               field_to_match {
@@ -188,46 +223,48 @@ resource "aws_wafv2_rule_group" "this" {
           }
 
           statement {
-            dynamic "byte_match_statement" {
-              for_each = length(var.trusted_path_label_paths) == 1 ? [var.trusted_path_label_paths[0]] : []
+            byte_match_statement {
+              search_string         = rule.value.paths[0]
+              positional_constraint = "EXACTLY"
 
-              content {
-                search_string         = byte_match_statement.value
-                positional_constraint = "EXACTLY"
+              field_to_match {
+                uri_path {}
+              }
+
+              text_transformation {
+                priority = 0
+                type     = "NONE"
+              }
+            }
+          }
+
+          dynamic "statement" {
+            for_each = length(try(rule.value.source_ipv4_cidrs, [])) > 0 ? [1] : []
+
+            content {
+              ip_set_reference_statement {
+                arn = aws_wafv2_ip_set.trusted_path_source[rule.key].arn
+              }
+            }
+          }
+
+          dynamic "statement" {
+            for_each = rule.value.require_x_hub_signature_256 ? [1] : []
+
+            content {
+              size_constraint_statement {
+                comparison_operator = "GT"
+                size                = 0
 
                 field_to_match {
-                  uri_path {}
+                  single_header {
+                    name = "x-hub-signature-256"
+                  }
                 }
 
                 text_transformation {
                   priority = 0
                   type     = "NONE"
-                }
-              }
-            }
-
-            dynamic "or_statement" {
-              for_each = length(var.trusted_path_label_paths) > 1 ? [1] : []
-
-              content {
-                dynamic "statement" {
-                  for_each = var.trusted_path_label_paths
-
-                  content {
-                    byte_match_statement {
-                      search_string         = statement.value
-                      positional_constraint = "EXACTLY"
-
-                      field_to_match {
-                        uri_path {}
-                      }
-
-                      text_transformation {
-                        priority = 0
-                        type     = "NONE"
-                      }
-                    }
-                  }
                 }
               }
             }
@@ -237,21 +274,126 @@ resource "aws_wafv2_rule_group" "this" {
 
       visibility_config {
         cloudwatch_metrics_enabled = true
-        metric_name                = "platform_trusted_path"
+        metric_name                = "platform_trusted_path_${rule.key}"
         sampled_requests_enabled   = true
       }
     }
   }
 
   ############################################################
-  # Rule 10: Platform IP Blocklist (optional)
+  # Rule 20+: Platform Trusted Paths (label-only) - multi path
+  ############################################################
+  dynamic "rule" {
+    for_each = {
+      for idx, rule in var.trusted_path_rules :
+      tostring(idx) => rule if length(try(rule.paths, [])) > 1
+    }
+
+    content {
+      name     = "platform-trusted-path-${rule.key}"
+      priority = 20 + tonumber(rule.key)
+
+      action {
+        count {}
+      }
+
+      rule_label {
+        name = "platform:trusted:path"
+      }
+
+      statement {
+        and_statement {
+          statement {
+            byte_match_statement {
+              search_string         = upper(rule.value.method)
+              positional_constraint = "EXACTLY"
+
+              field_to_match {
+                method {}
+              }
+
+              text_transformation {
+                priority = 0
+                type     = "NONE"
+              }
+            }
+          }
+
+          statement {
+            or_statement {
+              dynamic "statement" {
+                for_each = rule.value.paths
+
+                content {
+                  byte_match_statement {
+                    search_string         = statement.value
+                    positional_constraint = "EXACTLY"
+
+                    field_to_match {
+                      uri_path {}
+                    }
+
+                    text_transformation {
+                      priority = 0
+                      type     = "NONE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+
+          dynamic "statement" {
+            for_each = length(try(rule.value.source_ipv4_cidrs, [])) > 0 ? [1] : []
+
+            content {
+              ip_set_reference_statement {
+                arn = aws_wafv2_ip_set.trusted_path_source[rule.key].arn
+              }
+            }
+          }
+
+          dynamic "statement" {
+            for_each = rule.value.require_x_hub_signature_256 ? [1] : []
+
+            content {
+              size_constraint_statement {
+                comparison_operator = "GT"
+                size                = 0
+
+                field_to_match {
+                  single_header {
+                    name = "x-hub-signature-256"
+                  }
+                }
+
+                text_transformation {
+                  priority = 0
+                  type     = "NONE"
+                }
+              }
+            }
+          }
+        }
+      }
+
+      visibility_config {
+        cloudwatch_metrics_enabled = true
+        metric_name                = "platform_trusted_path_${rule.key}"
+        sampled_requests_enabled   = true
+      }
+    }
+  }
+
+  ############################################################
+  # Rule 100: Platform IP Blocklist (optional)
   ############################################################
   dynamic "rule" {
     for_each = var.block_ipset_arn == null ? [] : [1]
 
     content {
       name     = "platform-ip-block"
-      priority = 10
+      priority = 100
 
       action {
         block {}
@@ -272,14 +414,14 @@ resource "aws_wafv2_rule_group" "this" {
   }
 
   ############################################################
-  # Rule 11: Platform Geo Block (optional)
+  # Rule 110: Platform Geo Block (optional)
   ############################################################
   dynamic "rule" {
     for_each = length(var.block_countries) == 0 ? [] : [1]
 
     content {
       name     = "platform-geo-block"
-      priority = 11
+      priority = 110
 
       action {
         block {}

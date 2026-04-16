@@ -199,12 +199,15 @@ resource "aws_wafv2_rule_group" "this" {
                 }
               }
 
-              statement {
-                not_statement {
-                  statement {
-                    label_match_statement {
-                      scope = "LABEL"
-                      key   = "platform:trusted:path"
+              dynamic "statement" {
+                for_each = var.trusted_path_label_key != null ? [1] : []
+                content {
+                  not_statement {
+                    statement {
+                      label_match_statement {
+                        scope = "LABEL"
+                        key   = var.trusted_path_label_key
+                      }
                     }
                   }
                 }
@@ -267,12 +270,15 @@ resource "aws_wafv2_rule_group" "this" {
             }
           }
 
-          statement {
-            not_statement {
-              statement {
-                label_match_statement {
-                  scope = "LABEL"
-                  key   = "platform:trusted:path"
+          dynamic "statement" {
+            for_each = var.trusted_path_label_key != null ? [1] : []
+            content {
+              not_statement {
+                statement {
+                  label_match_statement {
+                    scope = "LABEL"
+                    key   = var.trusted_path_label_key
+                  }
                 }
               }
             }
