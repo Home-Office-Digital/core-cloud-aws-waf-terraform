@@ -114,17 +114,13 @@ locals {
         try(var.platform.baseline.block_countries[slot], [])
       ))
 
-      trusted_path_label_paths = distinct(concat(
-        try(var.platform.baseline.trusted_path_labels.global.paths, []),
-        try(var.platform.baseline.trusted_path_labels[slot].paths, [])
-      ))
-
-      trusted_path_label_method = try(
-        var.platform.baseline.trusted_path_labels[slot].method,
-        try(var.platform.baseline.trusted_path_labels.global.method, "POST")
+      trusted_path_rules = concat(
+        try(var.platform.baseline.trusted_path_labels.global, []),
+        try(var.platform.baseline.trusted_path_labels[slot], [])
       )
     }
   }
+
 }
 
 ############################################################
@@ -234,8 +230,14 @@ module "platform_baseline" {
   block_ipset_arn = try(aws_wafv2_ip_set.platform_baseline_block[each.key].arn, null)
   block_countries = each.value.block_countries
 
-  trusted_path_label_paths  = each.value.trusted_path_label_paths
-  trusted_path_label_method = each.value.trusted_path_label_method
+  trusted_path_rules = [
+    for idx, rule in try(each.value.trusted_path_rules, []) : {
+      method                      = try(rule.method, "POST")
+      paths                       = try(rule.paths, [])
+      source_ipv4_cidrs           = try(rule.source_ipv4_cidrs, [])
+      require_x_hub_signature_256 = try(rule.require_x_hub_signature_256, false)
+    }
+  ]
 
   healthcheck_allow_ipset_arn = try(aws_wafv2_ip_set.platform_healthcheck_allow[each.key].arn, null)
   curl_allow_ipset_arn        = try(aws_wafv2_ip_set.platform_curl_allow[each.key].arn, null)

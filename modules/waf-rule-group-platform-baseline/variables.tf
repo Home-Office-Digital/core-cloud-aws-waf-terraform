@@ -10,14 +10,14 @@ variable "slot" {
   type = string
 }
 
-variable "trusted_path_label_paths" {
-  type    = list(string)
+variable "trusted_path_rules" {
+  type = list(object({
+    method                      = string
+    paths                       = list(string)
+    source_ipv4_cidrs           = optional(list(string), [])
+    require_x_hub_signature_256 = bool
+  }))
   default = []
-}
-
-variable "trusted_path_label_method" {
-  type    = string
-  default = "POST"
 }
 
 ############################################################
