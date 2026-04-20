@@ -10,12 +10,23 @@ variable "slot" {
   type = string
 }
 
-variable "trusted_path_rules" {
+variable "trusted_request_rules" {
   type = list(object({
-    method                      = string
-    paths                       = list(string)
-    source_ipv4_cidrs           = optional(list(string), [])
-    require_x_hub_signature_256 = bool
+    name   = string
+    action = string
+    label  = optional(string)
+
+    methods = list(string)
+
+    uri_exact = list(string)
+    uri_regex = list(string)
+
+    host_exact = list(string)
+    host_regex = list(string)
+
+    required_headers = list(string)
+
+    source_ipv4_cidrs = list(string)
   }))
   default = []
 }
@@ -23,8 +34,6 @@ variable "trusted_path_rules" {
 ############################################################
 # TRUSTED (LABEL ONLY)
 ############################################################
-
-# Optional platform trusted IP set ARN (labels platform:trusted)
 variable "trusted_ipset_arn" {
   type    = string
   default = null
@@ -33,14 +42,11 @@ variable "trusted_ipset_arn" {
 ############################################################
 # BLOCKS
 ############################################################
-
-# Optional platform blocklist IP set ARN
 variable "block_ipset_arn" {
   type    = string
   default = null
 }
 
-# Optional geo block list
 variable "block_countries" {
   type    = list(string)
   default = []
