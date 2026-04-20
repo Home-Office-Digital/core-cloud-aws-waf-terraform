@@ -90,12 +90,35 @@ variable "platform" {
       trusted_ip_sets   = optional(any, {}) # global + per-slot keys; uses "allowlist" list
       trusted_countries = optional(any, {}) # global + per-slot keys; list(string)
 
-      # TRUSTED PATH LABELS (label-only -> platform:trusted:path)
-      trusted_path_labels = optional(map(list(object({
-        method                            = optional(string, "POST")
-        paths                             = list(string)
-        source_ipv4_cidrs                 = optional(list(string), [])
-        require_x_hub_signature_256       = optional(bool, false)
+      # GENERIC TRUSTED REQUEST RULES
+      # - global rules act as defaults
+      # - slot rules with the same name override global rules for that slot
+      trusted_request_rules = optional(map(list(object({
+        name   = string
+        action = string           # allow | count | block
+        label  = optional(string) # used when action = count
+
+        match = object({
+          methods = optional(list(string), [])
+
+          uri = optional(object({
+            exact = optional(list(string), [])
+            regex = optional(list(string), [])
+          }), {})
+
+          headers = optional(object({
+            host = optional(object({
+              exact = optional(list(string), [])
+              regex = optional(list(string), [])
+            }), {})
+
+            required = optional(list(string), [])
+          }), {})
+
+          source = optional(object({
+            ipv4_cidrs = optional(list(string), [])
+          }), {})
+        })
       }))), {})
 
       # BLOCKS
