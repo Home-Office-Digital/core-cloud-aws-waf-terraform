@@ -121,6 +121,9 @@ variable "platform" {
         })
       }))), {})
 
+      # CAPACITY
+      capacity = optional(any, {})
+
       # BLOCKS
       block_ip_sets   = optional(any, {}) # global + per-slot keys; uses "blocklist" list
       block_countries = optional(any, {}) # global + per-slot keys; list(string)

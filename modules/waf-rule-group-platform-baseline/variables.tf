@@ -66,3 +66,8 @@ variable "curl_allow_ipset_arn" {
   type    = string
   default = null
 }
+
+variable "capacity" {
+  type    = number
+  default = 50
+}

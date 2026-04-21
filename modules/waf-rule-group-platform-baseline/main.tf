@@ -1,5 +1,6 @@
 locals {
-  name = "${var.name_prefix}-platform-baseline-${var.slot}"
+  name        = "${var.name_prefix}-platform-baseline-${var.slot}"
+  name_prefix = "${var.name_prefix}-platform-baseline-${var.slot}-"
 
   trusted_request_source_ip_sets = {
     for idx, rule in var.trusted_request_rules :
@@ -104,10 +105,14 @@ resource "aws_wafv2_regex_pattern_set" "trusted_request_host_regex" {
 }
 
 resource "aws_wafv2_rule_group" "this" {
-  name        = local.name
+  name_prefix = local.name_prefix
   description = "Platform baseline rule group for slot ${var.slot}"
   scope       = "REGIONAL"
-  capacity    = 50
+  capacity    = var.capacity
+
+  lifecycle {
+    create_before_destroy = true
+  }
 
   depends_on = [
     aws_wafv2_ip_set.trusted_request_source,

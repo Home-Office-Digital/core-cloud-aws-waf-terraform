@@ -131,6 +131,12 @@ locals {
         try(var.platform.baseline.block_countries[slot], [])
       ))
 
+      capacity = try(
+        var.platform.baseline.capacity[slot],
+        var.platform.baseline.capacity.global,
+        50
+      )
+
       trusted_request_rules = local.merged_trusted_request_rules_by_slot[slot]
     }
   }
@@ -171,7 +177,7 @@ module "essential_rule_groups" {
   slot        = each.value
   tags        = var.tags
 
-  trusted_path_label_key = "awswaf:${data.aws_caller_identity.current.account_id}:rulegroup:${var.name_prefix}-platform-baseline-${each.value}:platform:trusted:path"
+  trusted_path_label_key = "awswaf:${data.aws_caller_identity.current.account_id}:label:platform:trusted:path"
 }
 
 ############################################################
@@ -262,6 +268,8 @@ module "platform_baseline" {
       source_ipv4_cidrs = try(rule.match.source.ipv4_cidrs, [])
     }
   ]
+
+  capacity = each.value.capacity
 
   healthcheck_allow_ipset_arn = try(aws_wafv2_ip_set.platform_healthcheck_allow[each.key].arn, null)
   curl_allow_ipset_arn        = try(aws_wafv2_ip_set.platform_curl_allow[each.key].arn, null)
