@@ -184,6 +184,8 @@ locals {
         customResponse                          = null
         overrideCustomerWebACLAssociation       = false
         sampledRequestsEnabledForDefaultActions = true
+        optimizeUnassociatedWebACL = true
+        webACLSource               = "DEFAULT"
       },
       local.logging_config
     )
