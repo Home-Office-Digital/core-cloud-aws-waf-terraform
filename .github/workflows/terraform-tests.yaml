@@ -75,12 +75,40 @@ jobs:
       - name: Terraform init
         run: terraform -chdir=${{ matrix.module }} init -backend=false
 
+      - name: Terraform test with JSON output
+        id: tf_test
+        run: |
+          set +e
+
+          module_name="$(basename "${{ matrix.module }}")"
+          mkdir -p test-results
+
+          terraform -chdir=${{ matrix.module }} test -json \
+            > "test-results/${module_name}-terraform-test.json"
+
+          exit_code=$?
+
+          if [ ! -s "test-results/${module_name}-terraform-test.json" ]; then
+            echo '{"type":"test_summary","status":"error","message":"Terraform test produced no JSON output"}' \
+              > "test-results/${module_name}-terraform-test.json"
+          fi
+
+          exit "$exit_code"
+
+      - name: Prepare artifact name
+        id: artifact
+        if: always()
+        run: |
+          module_name="$(basename "${{ matrix.module }}")"
+          echo "name=terraform-test-results-${module_name}" >> "$GITHUB_OUTPUT"
+
       - name: Upload Terraform test results
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: terraform-test-results-${{ strategy.job-index }}
+          name: ${{ steps.artifact.outputs.name }}
           path: test-results/*.json
+          if-no-files-found: warn
 
   sonarqube:
     name: SonarQube Scan
@@ -133,16 +161,13 @@ jobs:
                   except json.JSONDecodeError:
                       continue
 
-                  if event.get("@level") != "error" and event.get("type") != "test_run":
-                      continue
-
                   if event.get("type") == "test_run":
                       name = event.get("test_name") or event.get("run_name") or "terraform test"
                       status = event.get("status", "unknown")
 
                       out.append(f'    <testCase name="{escape(name)}" duration="0">')
 
-                      if status == "fail":
+                      if status in ["fail", "error"]:
                           msg = escape(event.get("@message", "Terraform test failed"))
                           out.append(f'      <failure message="{msg}">{msg}</failure>')
 
@@ -158,7 +183,7 @@ jobs:
           PY
 
       - name: SonarQube Scan
-        uses: SonarSource/sonarqube-scan-action@v5
+        uses: SonarSource/sonarqube-scan-action@v7.0.0
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
