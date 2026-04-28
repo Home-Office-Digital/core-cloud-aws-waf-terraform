@@ -103,3 +103,20 @@ run "include_and_exclude_accounts_are_mutually_exclusive" {
 
   expect_failures = [aws_fms_policy.this]
 }
+
+run "intentional_failure_for_ci_validation" {
+  command = plan
+
+  variables {
+    name_prefix              = "acme"
+    environment              = "dev"
+    slot                     = "blue"
+    policy_selector          = "default"
+    essential_rule_group_arn = "arn:aws:wafv2:us-east-1:111122223333:regional/rulegroup/essential/12345678-1234-1234-1234-123456789012"
+  }
+
+  assert {
+    condition     = output.policy_name == "this-will-always-fail"
+    error_message = "Intentional failure to validate CI merge gating on failed terraform tests."
+  }
+}
