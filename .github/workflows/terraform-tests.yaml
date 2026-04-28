@@ -101,7 +101,7 @@ jobs:
           path: test-results
           merge-multiple: true
 
-            - name: Convert Terraform JSON to SonarQube generic test execution
+      - name: Convert Terraform JSON to SonarQube generic test execution
         run: |
           set -euo pipefail
           mkdir -p test-results
@@ -156,7 +156,7 @@ jobs:
           print(f"Converted {len(json_files)} Terraform JSON files")
           print(sonar_file.read_text())
           PY
-          
+
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@v5
         env:
