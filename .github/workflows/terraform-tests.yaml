@@ -115,7 +115,8 @@ jobs:
       - name: Convert Terraform JUnit to SonarQube generic test execution
         run: |
           set -euo pipefail
-
+          mkdir -p test-results
+          
           python3 <<'PY'
           import xml.etree.ElementTree as ET
           from pathlib import Path
