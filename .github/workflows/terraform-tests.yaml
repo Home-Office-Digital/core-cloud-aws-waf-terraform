@@ -147,8 +147,15 @@ jobs:
           out = ['<testExecutions version="1">']
 
           for json_file in json_files:
-              module_name = json_file.name.replace("-terraform-test.json", "")
-              test_file_path = f"modules/{module_name}/tests/terraform.tftest.hcl"
+          module_name = json_file.name.replace("-terraform-test.json", "")
+
+          module_dir = Path("modules") / module_name / "tests"
+          test_files = sorted(module_dir.glob("*.tftest.hcl"))
+
+          if test_files:
+            test_file_path = str(test_files[0])
+          else:
+            test_file_path = f"modules/{module_name}/tests/test.tftest.hcl"
 
               out.append(f'  <file path="{escape(test_file_path)}">')
 
@@ -181,6 +188,11 @@ jobs:
           print(f"Converted {len(json_files)} Terraform JSON files")
           print(sonar_file.read_text())
           PY
+
+      - name: Debug Terraform test files
+        run: |
+          find modules -path "*/tests/*.tftest.hcl" -type f
+          cat test-results/sonarqube-test-execution.xml
 
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@v7.0.0
