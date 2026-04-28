@@ -43,6 +43,18 @@ jobs:
           echo "modules=${modules_json}" >> "$GITHUB_OUTPUT"
           echo "Discovered modules: ${modules_json}"
 
+      - name: Report module test coverage
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          total_modules=$(find modules -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')
+          tested_modules=$(echo '${{ steps.discover.outputs.modules }}' | jq 'length')
+          coverage=$(awk -v t="$total_modules" -v m="$tested_modules" 'BEGIN { if (t==0) printf "0.00"; else printf "%.2f", (m/t)*100 }')
+
+          echo "Terraform module test coverage: ${tested_modules}/${total_modules} (${coverage}%)"
+          echo "### Terraform module test coverage: ${tested_modules}/${total_modules} (${coverage}%)" >> "$GITHUB_STEP_SUMMARY"
+
   terraform-test:
     name: Terraform test
     runs-on: ubuntu-latest
@@ -69,6 +81,27 @@ jobs:
 
       - name: Terraform test
         run: terraform -chdir=${{ matrix.module }} test -no-color
+      
+      - name: Upload Terraform test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: terraform-test-results
+          path: test-results/
+
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@v5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        with:
+          args: >
+            -Dsonar.projectKey=core-cloud-aws-waf-terraform 
+            -Dsonar.projectName=core-cloud-aws-waf-terraform
+            -Dsonar.sources=.
+            -Dsonar.tests=.
+            -Dsonar.test.inclusions=**/*.tftest.hcl
+            -Dsonar.testExecutionReportPaths=test-results/terraform-test.xml
 
   no-test-modules:
     name: No Terraform tests found
