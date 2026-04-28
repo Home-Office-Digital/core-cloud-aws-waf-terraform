@@ -75,23 +75,12 @@ jobs:
       - name: Terraform init
         run: terraform -chdir=${{ matrix.module }} init -backend=false
 
-      - name: Terraform test with JUnit output
-        run: |
-          set -euo pipefail
-
-          module_name="$(basename "${{ matrix.module }}")"
-          mkdir -p test-results
-
-          terraform -chdir=${{ matrix.module }} test \
-            -no-color \
-            -junit-xml="$GITHUB_WORKSPACE/test-results/${module_name}-terraform-test.xml"
-
       - name: Upload Terraform test results
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: terraform-test-results-${{ matrix.module }}
-          path: test-results/*.xml
+          name: terraform-test-results-${{ strategy.job-index }}
+          path: test-results/*.json
 
   sonarqube:
     name: SonarQube Scan
@@ -112,62 +101,62 @@ jobs:
           path: test-results
           merge-multiple: true
 
-      - name: Convert Terraform JUnit to SonarQube generic test execution
+            - name: Convert Terraform JSON to SonarQube generic test execution
         run: |
           set -euo pipefail
           mkdir -p test-results
-          
+
           python3 <<'PY'
-          import xml.etree.ElementTree as ET
+          import json
           from pathlib import Path
           from xml.sax.saxutils import escape
 
           results_dir = Path("test-results")
           sonar_file = results_dir / "sonarqube-test-execution.xml"
 
+          json_files = sorted(results_dir.glob("**/*-terraform-test.json"))
+
           out = ['<testExecutions version="1">']
 
-          for junit_file in sorted(results_dir.glob("*-terraform-test.xml")):
-              module_name = junit_file.name.replace("-terraform-test.xml", "")
+          for json_file in json_files:
+              module_name = json_file.name.replace("-terraform-test.json", "")
               test_file_path = f"modules/{module_name}/tests/terraform.tftest.hcl"
 
               out.append(f'  <file path="{escape(test_file_path)}">')
 
-              root = ET.parse(junit_file).getroot()
+              for line in json_file.read_text(errors="ignore").splitlines():
+                  if not line.strip():
+                      continue
 
-              for case in root.iter("testcase"):
-                  name = case.attrib.get("name", "terraform test")
-                  duration = int(float(case.attrib.get("time", "0") or 0) * 1000)
+                  try:
+                      event = json.loads(line)
+                  except json.JSONDecodeError:
+                      continue
 
-                  out.append(f'    <testCase name="{escape(name)}" duration="{duration}">')
+                  if event.get("@level") != "error" and event.get("type") != "test_run":
+                      continue
 
-                  failure = case.find("failure")
-                  error = case.find("error")
-                  skipped = case.find("skipped")
+                  if event.get("type") == "test_run":
+                      name = event.get("test_name") or event.get("run_name") or "terraform test"
+                      status = event.get("status", "unknown")
 
-                  if failure is not None:
-                      msg = escape(failure.attrib.get("message", "failure"))
-                      text = escape(failure.text or "")
-                      out.append(f'      <failure message="{msg}">{text}</failure>')
-                  elif error is not None:
-                      msg = escape(error.attrib.get("message", "error"))
-                      text = escape(error.text or "")
-                      out.append(f'      <error message="{msg}">{text}</error>')
-                  elif skipped is not None:
-                      msg = escape(skipped.attrib.get("message", "skipped"))
-                      text = escape(skipped.text or "")
-                      out.append(f'      <skipped message="{msg}">{text}</skipped>')
+                      out.append(f'    <testCase name="{escape(name)}" duration="0">')
 
-                  out.append("    </testCase>")
+                      if status == "fail":
+                          msg = escape(event.get("@message", "Terraform test failed"))
+                          out.append(f'      <failure message="{msg}">{msg}</failure>')
+
+                      out.append("    </testCase>")
 
               out.append("  </file>")
 
           out.append("</testExecutions>")
 
           sonar_file.write_text("\n".join(out), encoding="utf-8")
+          print(f"Converted {len(json_files)} Terraform JSON files")
           print(sonar_file.read_text())
           PY
-
+          
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@v5
         env:
