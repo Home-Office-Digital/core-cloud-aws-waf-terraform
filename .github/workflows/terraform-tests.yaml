@@ -2,11 +2,9 @@ name: Terraform Tests
 
 on:
   pull_request:
-    branches:
-      - main
+    branches: [main]
   push:
-    branches:
-      - main
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -52,7 +50,6 @@ jobs:
           tested_modules=$(echo '${{ steps.discover.outputs.modules }}' | jq 'length')
           coverage=$(awk -v t="$total_modules" -v m="$tested_modules" 'BEGIN { if (t==0) printf "0.00"; else printf "%.2f", (m/t)*100 }')
 
-          echo "Terraform module test coverage: ${tested_modules}/${total_modules} (${coverage}%)"
           echo "### Terraform module test coverage: ${tested_modules}/${total_modules} (${coverage}%)" >> "$GITHUB_STEP_SUMMARY"
 
   terraform-test:
@@ -64,9 +61,7 @@ jobs:
       fail-fast: false
       matrix:
         module: ${{ fromJson(needs.discover-modules.outputs.modules) }}
-    defaults:
-      run:
-        shell: bash
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -75,19 +70,102 @@ jobs:
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.9.8
+          terraform_wrapper: false
 
       - name: Terraform init
         run: terraform -chdir=${{ matrix.module }} init -backend=false
 
-      - name: Terraform test
-        run: terraform -chdir=${{ matrix.module }} test -no-color
-      
+      - name: Terraform test with JUnit output
+        run: |
+          set -euo pipefail
+
+          module_name="$(basename "${{ matrix.module }}")"
+          mkdir -p test-results
+
+          terraform -chdir=${{ matrix.module }} test \
+            -no-color \
+            -junit-xml="$GITHUB_WORKSPACE/test-results/${module_name}-terraform-test.xml"
+
       - name: Upload Terraform test results
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: terraform-test-results
-          path: test-results/
+          name: terraform-test-results-${{ matrix.module }}
+          path: test-results/*.xml
+
+  sonarqube:
+    name: SonarQube Scan
+    runs-on: ubuntu-latest
+    needs:
+      - discover-modules
+      - terraform-test
+    if: always() && needs.discover-modules.outputs.modules != '[]'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download Terraform test results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: terraform-test-results-*
+          path: test-results
+          merge-multiple: true
+
+      - name: Convert Terraform JUnit to SonarQube generic test execution
+        run: |
+          set -euo pipefail
+
+          python3 <<'PY'
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+          from xml.sax.saxutils import escape
+
+          results_dir = Path("test-results")
+          sonar_file = results_dir / "sonarqube-test-execution.xml"
+
+          out = ['<testExecutions version="1">']
+
+          for junit_file in sorted(results_dir.glob("*-terraform-test.xml")):
+              module_name = junit_file.name.replace("-terraform-test.xml", "")
+              test_file_path = f"modules/{module_name}/tests/terraform.tftest.hcl"
+
+              out.append(f'  <file path="{escape(test_file_path)}">')
+
+              root = ET.parse(junit_file).getroot()
+
+              for case in root.iter("testcase"):
+                  name = case.attrib.get("name", "terraform test")
+                  duration = int(float(case.attrib.get("time", "0") or 0) * 1000)
+
+                  out.append(f'    <testCase name="{escape(name)}" duration="{duration}">')
+
+                  failure = case.find("failure")
+                  error = case.find("error")
+                  skipped = case.find("skipped")
+
+                  if failure is not None:
+                      msg = escape(failure.attrib.get("message", "failure"))
+                      text = escape(failure.text or "")
+                      out.append(f'      <failure message="{msg}">{text}</failure>')
+                  elif error is not None:
+                      msg = escape(error.attrib.get("message", "error"))
+                      text = escape(error.text or "")
+                      out.append(f'      <error message="{msg}">{text}</error>')
+                  elif skipped is not None:
+                      msg = escape(skipped.attrib.get("message", "skipped"))
+                      text = escape(skipped.text or "")
+                      out.append(f'      <skipped message="{msg}">{text}</skipped>')
+
+                  out.append("    </testCase>")
+
+              out.append("  </file>")
+
+          out.append("</testExecutions>")
+
+          sonar_file.write_text("\n".join(out), encoding="utf-8")
+          print(sonar_file.read_text())
+          PY
 
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@v5
@@ -96,12 +174,12 @@ jobs:
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
         with:
           args: >
-            -Dsonar.projectKey=core-cloud-aws-waf-terraform 
+            -Dsonar.projectKey=core-cloud-aws-waf-terraform
             -Dsonar.projectName=core-cloud-aws-waf-terraform
             -Dsonar.sources=.
-            -Dsonar.tests=.
-            -Dsonar.test.inclusions=**/*.tftest.hcl
-            -Dsonar.testExecutionReportPaths=test-results/terraform-test.xml
+            -Dsonar.tests=modules
+            -Dsonar.test.inclusions=**/tests/*.tftest.hcl
+            -Dsonar.testExecutionReportPaths=test-results/sonarqube-test-execution.xml
 
   no-test-modules:
     name: No Terraform tests found
