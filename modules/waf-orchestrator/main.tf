@@ -37,15 +37,15 @@ locals {
       try(length(tenant.slots), 0) > 0
       ? tenant.slots
       : distinct(concat(
-      [
-        for slot, cfg in try(tenant.ip_sets, {}) : slot
-        if length(try(cfg.allowlist, [])) > 0 || length(try(cfg.blocklist, [])) > 0
-      ],
-      [
-        for slot, cfg in try(tenant.geo, {}) : slot
-        if length(try(cfg.allow, [])) > 0 || length(try(cfg.block, [])) > 0
-      ]
-    ))
+        [
+          for slot, cfg in try(tenant.ip_sets, {}) : slot
+          if length(try(cfg.allowlist, [])) > 0 || length(try(cfg.blocklist, [])) > 0
+        ],
+        [
+          for slot, cfg in try(tenant.geo, {}) : slot
+          if length(try(cfg.allow, [])) > 0 || length(try(cfg.block, [])) > 0
+        ]
+      ))
     )
   }
 
@@ -56,22 +56,22 @@ locals {
     for item in flatten([
       for tenant_name, tenant in var.tenants : (
         try(tenant.enabled, true) ? [
-        for slot in local.tenant_slots[tenant_name] : {
-          key    = "${tenant_name}-${slot}"
-          tenant = tenant_name
-          slot   = slot
+          for slot in local.tenant_slots[tenant_name] : {
+            key    = "${tenant_name}-${slot}"
+            tenant = tenant_name
+            slot   = slot
 
-          ip_sets = lookup(try(tenant.ip_sets, {}), slot, {
-            allowlist = []
-            blocklist = []
-          })
+            ip_sets = lookup(try(tenant.ip_sets, {}), slot, {
+              allowlist = []
+              blocklist = []
+            })
 
-          geo = lookup(try(tenant.geo, {}), slot, {
-            allow = []
-            block = []
-          })
-        }
-      ] : []
+            geo = lookup(try(tenant.geo, {}), slot, {
+              allow = []
+              block = []
+            })
+          }
+        ] : []
       )
     ]) : item.key => item
   }
@@ -152,6 +152,8 @@ locals {
     }
   }
 }
+
+data "aws_caller_identity" "current" {}
 
 ############################################################
 # TENANT ACCOUNT VALIDATION
