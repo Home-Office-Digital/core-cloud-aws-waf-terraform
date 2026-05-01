@@ -4,4 +4,5 @@
 !.env.example
 .terragrunt-cache
 .terraform.lock.hcl
+.terraform
 .DS_Store
