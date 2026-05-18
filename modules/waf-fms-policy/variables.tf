@@ -172,3 +172,9 @@ variable "bot_control_inspection_level" {
     error_message = "Must be COMMON or TARGETED."
   }
 }
+
+variable "optimize_unassociated_web_acl" {
+  description = "When false, FMS pre-creates WebACLs in all in-scope accounts even with no matching resources. Set to false to make WebACLs visible for manual association (e.g. Verified Access)."
+  type        = bool
+  default     = false
+}

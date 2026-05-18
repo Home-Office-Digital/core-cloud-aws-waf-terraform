@@ -473,6 +473,8 @@ module "default_policies" {
 
   waf_log_destination_arn = try(var.waf_log_destination_arn_by_slot[each.value], null)
 
+  optimize_unassociated_web_acl = can(regex("-blue$", each.value)) ? false : true
+
   tags = var.tags
 }
 
@@ -527,6 +529,8 @@ module "tenant_policies" {
   platform_emergency_last_rule_group_arn  = try(module.platform_emergency_last[each.value.slot].rule_group_arn, null)
 
   waf_log_destination_arn = try(var.waf_log_destination_arn_by_slot[each.value.slot], null)
+
+  optimize_unassociated_web_acl = can(regex("-blue$", each.value)) ? false : true
 
   tags = var.tags
 }
