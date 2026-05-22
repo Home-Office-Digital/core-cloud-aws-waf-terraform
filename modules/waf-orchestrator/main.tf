@@ -153,8 +153,6 @@ locals {
   }
 }
 
-data "aws_caller_identity" "current" {}
-
 ############################################################
 # TENANT ACCOUNT VALIDATION
 # Validate only tenants that would actually create policies.
