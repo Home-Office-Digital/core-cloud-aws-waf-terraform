@@ -457,6 +457,11 @@ module "default_policies" {
   enable_bot_control   = try(var.slot_config[each.value].enable_bot_control, var.enable_bot_control)
   enable_layer7_ddos   = try(var.slot_config[each.value].enable_layer7_ddos, var.enable_layer7_ddos)
 
+  core_rule_set_override_action = try(
+    var.slot_config[each.value].core_rule_set_override_action,
+    "NONE"
+  )
+
   bot_control_rules            = local.merged_bot_control_rules_by_slot[each.value]
   bot_control_inspection_level = try(var.platform.baseline.bot_control_inspection_level, "TARGETED")
 
@@ -511,6 +516,11 @@ module "tenant_policies" {
   enable_ip_reputation = try(var.slot_config[each.value.slot].enable_ip_reputation, var.enable_ip_reputation)
   enable_anonymous_ip  = try(var.slot_config[each.value.slot].enable_anonymous_ip, var.enable_anonymous_ip)
   enable_layer7_ddos   = try(var.slot_config[each.value.slot].enable_layer7_ddos, var.enable_layer7_ddos)
+
+  core_rule_set_override_action = try(
+    var.slot_config[each.value.slot].core_rule_set_override_action,
+    "NONE"
+  )
 
   enable_bot_control = try(
     var.tenants[each.value.tenant].enable_bot_control,

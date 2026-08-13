@@ -129,13 +129,27 @@ run "plan_builds_default_and_tenant_outputs" {
   }
 
   assert {
-    condition     = output.default_resource_tags_by_slot["blue"]["waf:selector"] == "default_include"
-    error_message = "Default resource tags should use the default selector when slot_config is unset."
+    condition = (
+      output.default_resource_tags_by_slot["blue"]["waf:coverage"] == "custom" &&
+      output.default_resource_tags_by_slot["blue"]["waf:selector"] == "default_include"
+    )
+    error_message = "Default include tags should require waf:coverage=custom and the default_include selector."
   }
 
   assert {
-    condition     = output.tenant_resource_tags["tenant_a-blue"]["waf:tenant"] == "tenant_a"
-    error_message = "Tenant resource tags should include the tenant identifier."
+    condition = (
+      output.tenant_resource_tags["tenant_a-blue"]["waf:tenant"] == "tenant_a" &&
+      output.tenant_resource_tags["tenant_a-blue"]["waf:coverage"] == "custom"
+    )
+    error_message = "Tenant resource tags should include coverage=custom and the tenant identifier."
+  }
+
+  assert {
+    condition = (
+      output.opt_out_resource_tags["waf:coverage"] == "custom" &&
+      output.opt_out_resource_tags["waf:opt-out"] == "true"
+    )
+    error_message = "Opt-out tags should be waf:coverage=custom and waf:opt-out=true."
   }
 
   assert {
@@ -178,5 +192,48 @@ run "active_tenants_with_include_accounts_are_allowed" {
   assert {
     condition     = output.tenant_policies["tenant_a-blue"].policy_name == "acme-tenant-tenant_a-waf-policy-blue"
     error_message = "Tenant policy should be planned when include_account_ids are provided."
+  }
+}
+
+run "exclude_mode_org_default_exposes_coverage_exclusion_tag" {
+  command = plan
+
+  variables {
+    name_prefix    = "acme"
+    environment    = "dev"
+    aws_account_id = "111122223333"
+    slots          = ["org-default"]
+
+    slot_config = {
+      org-default = {
+        policy_selector = "default"
+        resource_type_list = [
+          "AWS::ElasticLoadBalancingV2::LoadBalancer",
+          "AWS::ApiGateway::Stage",
+        ]
+        core_rule_set_override_action = "COUNT"
+      }
+    }
+
+    platform = {
+      baseline  = {}
+      emergency = {}
+    }
+
+    tenants = {}
+  }
+
+  assert {
+    condition     = output.default_policies["org-default"].policy_name == "acme-platform-waf-policy-org-default"
+    error_message = "Catch-all slot should create a platform default policy."
+  }
+
+  assert {
+    condition = (
+      length(output.default_resource_tags_by_slot["org-default"]) == 1 &&
+      output.default_resource_tags_by_slot["org-default"]["waf:coverage"] == "custom" &&
+      !contains(keys(output.default_resource_tags_by_slot["org-default"]), "waf:selector")
+    )
+    error_message = "Exclude-mode slots should expose only the waf:coverage=custom exclusion tag."
   }
 }
