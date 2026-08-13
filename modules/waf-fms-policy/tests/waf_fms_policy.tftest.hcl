@@ -103,3 +103,21 @@ run "include_and_exclude_accounts_are_mutually_exclusive" {
 
   expect_failures = [aws_fms_policy.this]
 }
+
+run "single_resource_type_uses_resource_type_not_list" {
+  command = plan
+
+  variables {
+    name_prefix              = "acme"
+    environment              = "dev"
+    slot                     = "alb-internal-blue"
+    policy_selector          = "default_include"
+    essential_rule_group_arn = "arn:aws:wafv2:us-east-1:111122223333:regional/rulegroup/essential/12345678-1234-1234-1234-123456789012"
+    resource_type_list       = ["AWS::ElasticLoadBalancingV2::LoadBalancer"]
+  }
+
+  assert {
+    condition     = aws_fms_policy.this.resource_type == "AWS::ElasticLoadBalancingV2::LoadBalancer"
+    error_message = "A single resource type must be set via resource_type to avoid FMS perpetual drift."
+  }
+}
