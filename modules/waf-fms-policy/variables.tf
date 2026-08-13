@@ -91,6 +91,17 @@ variable "enable_core_rule_set" {
   default = true
 }
 
+variable "core_rule_set_override_action" {
+  description = "Override action for AWSManagedRulesCommonRuleSet. NONE uses managed defaults (typically BLOCK); COUNT monitors without blocking."
+  type        = string
+  default     = "NONE"
+
+  validation {
+    condition     = contains(["NONE", "COUNT"], var.core_rule_set_override_action)
+    error_message = "core_rule_set_override_action must be NONE or COUNT."
+  }
+}
+
 variable "enable_ip_reputation" {
   type    = bool
   default = true

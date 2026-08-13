@@ -22,8 +22,8 @@ run "default_policy_uses_exclude_mode_and_default_name" {
   }
 
   assert {
-    condition     = aws_fms_policy.this.resource_tags["fms-managed"] == "true"
-    error_message = "Default selector should use fms-managed=true as exclusion tags."
+    condition     = aws_fms_policy.this.resource_tags["waf:coverage"] == "custom"
+    error_message = "Default selector should exclude resources tagged waf:coverage=custom."
   }
 }
 
@@ -52,8 +52,11 @@ run "tenant_policy_uses_include_mode_and_tenant_name" {
   }
 
   assert {
-    condition     = aws_fms_policy.this.resource_tags["waf:selector"] == "tenant"
-    error_message = "Tenant selector should inject tenant include tags."
+    condition = (
+      aws_fms_policy.this.resource_tags["waf:selector"] == "tenant" &&
+      aws_fms_policy.this.resource_tags["waf:coverage"] == "custom"
+    )
+    error_message = "Tenant selector should inject tenant include tags including waf:coverage=custom."
   }
 }
 
@@ -119,5 +122,54 @@ run "single_resource_type_uses_resource_type_not_list" {
   assert {
     condition     = aws_fms_policy.this.resource_type == "AWS::ElasticLoadBalancingV2::LoadBalancer"
     error_message = "A single resource type must be set via resource_type to avoid FMS perpetual drift."
+  }
+}
+
+run "core_rule_set_can_run_in_count_mode" {
+  command = plan
+
+  variables {
+    name_prefix                   = "acme"
+    environment                   = "dev"
+    slot                          = "org-default"
+    policy_selector               = "default"
+    essential_rule_group_arn      = "arn:aws:wafv2:us-east-1:111122223333:regional/rulegroup/essential/12345678-1234-1234-1234-123456789012"
+    enable_core_rule_set          = true
+    core_rule_set_override_action = "COUNT"
+    enable_ip_reputation          = true
+    enable_anonymous_ip           = false
+    enable_bot_control            = false
+    enable_layer7_ddos            = true
+  }
+
+  assert {
+    condition = anytrue([
+      for rg in jsondecode(aws_fms_policy.this.security_service_policy_data[0].managed_service_data).preProcessRuleGroups :
+      try(rg.managedRuleGroupIdentifier.managedRuleGroupName, "") == "AWSManagedRulesCommonRuleSet" &&
+      try(rg.overrideAction.type, "") == "COUNT"
+    ])
+    error_message = "Common Rule Set should use overrideAction COUNT when core_rule_set_override_action=COUNT."
+  }
+}
+
+run "default_include_requires_coverage_tag" {
+  command = plan
+
+  variables {
+    name_prefix              = "acme"
+    environment              = "dev"
+    slot                     = "alb-external-blue"
+    policy_selector          = "default_include"
+    essential_rule_group_arn = "arn:aws:wafv2:us-east-1:111122223333:regional/rulegroup/essential/12345678-1234-1234-1234-123456789012"
+    resource_type_list       = ["AWS::ElasticLoadBalancingV2::LoadBalancer"]
+  }
+
+  assert {
+    condition = (
+      aws_fms_policy.this.resource_tags["waf:coverage"] == "custom" &&
+      aws_fms_policy.this.resource_tags["waf:selector"] == "default_include" &&
+      aws_fms_policy.this.resource_tags["waf:slot"] == "alb-external-blue"
+    )
+    error_message = "Include-mode platform policies must require waf:coverage=custom plus selector/slot tags."
   }
 }

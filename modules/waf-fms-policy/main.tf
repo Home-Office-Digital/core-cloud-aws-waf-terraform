@@ -98,7 +98,7 @@ locals {
       var.enable_core_rule_set ? {
       ruleGroupType          = "ManagedRuleGroup"
       ruleGroupArn           = null
-      overrideAction         = { type = "NONE" }
+      overrideAction         = { type = var.core_rule_set_override_action }
       sampledRequestsEnabled = true
       excludeRules           = []
       managedRuleGroupIdentifier = {
@@ -226,23 +226,28 @@ locals {
   ############################################################
   # 6) FMS resource scoping (SELECTOR-DRIVEN MODEL)
   ############################################################
+  # Tagging model (2 paths + exception):
+  # A) org-default catch-all: no waf:coverage tag
+  # B) dedicated opt-in: waf:coverage=custom + selector/slot/(tenant)
+  # C) full opt-out: waf:coverage=custom + waf:opt-out=true
+  # Catch-all excludes waf:coverage=custom so B and C both skip it.
   tenant_match_tags = merge(
     {
-      (var.fms_tag_key) = "true"
-      "waf:selector"    = "tenant"
-      "waf:slot"        = var.slot
+      "waf:coverage" = "custom"
+      "waf:selector" = "tenant"
+      "waf:slot"     = var.slot
     },
       var.tenant != null ? { "waf:tenant" = var.tenant } : {}
   )
 
   default_include_match_tags = {
-    (var.fms_tag_key) = "true"
-    "waf:selector"    = "default_include"
-    "waf:slot"        = var.slot
+    "waf:coverage" = "custom"
+    "waf:selector" = "default_include"
+    "waf:slot"     = var.slot
   }
 
   default_exclusion_tags = {
-    (var.fms_tag_key) = "true"
+    "waf:coverage" = "custom"
   }
 
   exclude_mode = (var.policy_selector == "default")
