@@ -1,20 +1,13 @@
-mock_provider "aws" {
-  mock_data "aws_caller_identity" {
-    defaults = {
-      account_id = "111122223333"
-      arn        = "arn:aws:iam::111122223333:user/test"
-      id         = "111122223333"
-    }
-  }
-}
+mock_provider "aws" {}
 
 run "plan_builds_default_and_tenant_outputs" {
   command = plan
 
   variables {
-    name_prefix = "acme"
-    environment = "dev"
-    slots       = ["blue"]
+    name_prefix    = "acme"
+    environment    = "dev"
+    aws_account_id = "111122223333"
+    slots          = ["blue"]
     tags = {
       owner = "security"
     }
@@ -155,9 +148,10 @@ run "active_tenants_with_include_accounts_are_allowed" {
   command = plan
 
   variables {
-    name_prefix = "acme"
-    environment = "dev"
-    slots       = ["blue"]
+    name_prefix    = "acme"
+    environment    = "dev"
+    aws_account_id = "111122223333"
+    slots          = ["blue"]
 
     tenants = {
       tenant_a = {

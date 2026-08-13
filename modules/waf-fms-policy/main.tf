@@ -273,7 +273,11 @@ locals {
 resource "aws_fms_policy" "this" {
   name                = local.policy_name
   remediation_enabled = true
-  resource_type_list = var.resource_type_list
+
+  # AWS provider: a one-element resource_type_list is unsupported and causes
+  # perpetual plan drift; use resource_type for a single type instead.
+  resource_type      = length(var.resource_type_list) == 1 ? var.resource_type_list[0] : null
+  resource_type_list = length(var.resource_type_list) > 1 ? var.resource_type_list : null
 
   dynamic "include_map" {
     for_each = length(var.include_account_ids) > 0 ? [1] : []
