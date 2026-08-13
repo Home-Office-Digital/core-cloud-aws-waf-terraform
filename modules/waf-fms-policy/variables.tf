@@ -57,7 +57,9 @@ variable "policy_selector" {
 # Rule group ARNs
 ############################################################
 variable "essential_rule_group_arn" {
-  type = string
+  description = "Essential rule group ARN (rate limits / body size). Optional — omit for managed-rules-only policies such as org-default."
+  type        = string
+  default     = null
 }
 
 variable "tenant_rule_group_arn" {

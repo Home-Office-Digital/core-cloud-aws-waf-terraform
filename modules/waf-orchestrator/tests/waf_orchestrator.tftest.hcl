@@ -211,7 +211,14 @@ run "exclude_mode_org_default_exposes_coverage_exclusion_tag" {
           "AWS::ElasticLoadBalancingV2::LoadBalancer",
           "AWS::ApiGateway::Stage",
         ]
+        enable_platform_baseline      = false
+        enable_essential              = false
+        enable_core_rule_set          = true
         core_rule_set_override_action = "COUNT"
+        enable_ip_reputation          = true
+        enable_layer7_ddos            = true
+        enable_anonymous_ip           = false
+        enable_bot_control            = false
       }
     }
 
@@ -235,5 +242,23 @@ run "exclude_mode_org_default_exposes_coverage_exclusion_tag" {
       !contains(keys(output.default_resource_tags_by_slot["org-default"]), "waf:selector")
     )
     error_message = "Exclude-mode slots should expose only the waf:coverage=custom exclusion tag."
+  }
+
+  assert {
+    condition     = length(keys(module.essential_rule_groups)) == 0
+    error_message = "org-default with enable_essential=false must not create an essential rule group."
+  }
+
+  assert {
+    condition     = length(keys(module.platform_baseline)) == 0
+    error_message = "org-default with enable_platform_baseline=false must not create a baseline rule group."
+  }
+
+  assert {
+    condition = (
+      length(keys(module.platform_emergency_first)) == 1 &&
+      length(keys(module.platform_emergency_last)) == 1
+    )
+    error_message = "org-default must still create emergency first/last rule groups."
   }
 }

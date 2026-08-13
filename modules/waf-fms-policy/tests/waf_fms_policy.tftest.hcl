@@ -152,6 +152,49 @@ run "core_rule_set_can_run_in_count_mode" {
   }
 }
 
+run "managed_only_policy_omits_essential_and_baseline" {
+  command = plan
+
+  variables {
+    name_prefix                               = "acme"
+    environment                               = "dev"
+    slot                                      = "org-default"
+    policy_selector                           = "default"
+    essential_rule_group_arn                  = null
+    platform_baseline_rule_group_arn          = null
+    platform_emergency_first_rule_group_arn   = "arn:aws:wafv2:us-east-1:111122223333:regional/rulegroup/emergency-first/12345678-1234-1234-1234-123456789012"
+    platform_emergency_last_rule_group_arn    = "arn:aws:wafv2:us-east-1:111122223333:regional/rulegroup/emergency-last/12345678-1234-1234-1234-123456789012"
+    enable_core_rule_set                      = true
+    core_rule_set_override_action             = "COUNT"
+    enable_ip_reputation                      = true
+    enable_anonymous_ip                       = false
+    enable_bot_control                        = false
+    enable_layer7_ddos                        = true
+  }
+
+  assert {
+    condition = (
+      length([
+        for rg in jsondecode(aws_fms_policy.this.security_service_policy_data[0].managed_service_data).preProcessRuleGroups :
+        rg if try(rg.ruleGroupType, "") == "RuleGroup"
+      ]) == 1 &&
+      [
+        for rg in jsondecode(aws_fms_policy.this.security_service_policy_data[0].managed_service_data).preProcessRuleGroups :
+        try(rg.ruleGroupArn, "") if try(rg.ruleGroupType, "") == "RuleGroup"
+      ][0] == "arn:aws:wafv2:us-east-1:111122223333:regional/rulegroup/emergency-first/12345678-1234-1234-1234-123456789012"
+    )
+    error_message = "Managed-only PRE stack must be emergency FIRST only (no essential/baseline custom rule groups)."
+  }
+
+  assert {
+    condition = anytrue([
+      for rg in jsondecode(aws_fms_policy.this.security_service_policy_data[0].managed_service_data).postProcessRuleGroups :
+      try(rg.ruleGroupArn, "") == "arn:aws:wafv2:us-east-1:111122223333:regional/rulegroup/emergency-last/12345678-1234-1234-1234-123456789012"
+    ])
+    error_message = "Managed-only policies must still attach emergency LAST in POST."
+  }
+}
+
 run "default_include_requires_coverage_tag" {
   command = plan
 
