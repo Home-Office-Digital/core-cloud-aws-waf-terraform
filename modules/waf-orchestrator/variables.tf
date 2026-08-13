@@ -6,6 +6,11 @@ variable "environment" {
   type = string
 }
 
+variable "aws_account_id" {
+  description = "AWS account ID for fully-qualified WAF label keys (e.g. trusted-path labels). Pass from Terragrunt _env.hcl — do not declare aws_caller_identity in this module (Terragrunt generates it for the account guardrail)."
+  type        = string
+}
+
 variable "tags" {
   type    = map(string)
   default = {}
