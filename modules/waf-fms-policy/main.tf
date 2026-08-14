@@ -45,9 +45,9 @@ locals {
   }
 
   ############################################################
-  # 2) Essential Rule Groups
+  # 2) Essential Rule Groups (optional)
   ############################################################
-  rg_essential = {
+  rg_essential = var.essential_rule_group_arn == null ? null : {
     ruleGroupType              = "RuleGroup"
     ruleGroupArn               = var.essential_rule_group_arn
     overrideAction             = { type = "NONE" }
@@ -182,11 +182,11 @@ locals {
   ############################################################
   pre_rules = [
     for rg in concat(
-        var.platform_emergency_first_rule_group_arn != null ? [local.rg_platform_emergency_first] : [],
-        var.platform_baseline_rule_group_arn != null ? [local.rg_platform_baseline] : [],
-      [local.rg_essential],
+      var.platform_emergency_first_rule_group_arn != null ? [local.rg_platform_emergency_first] : [],
+      var.platform_baseline_rule_group_arn != null ? [local.rg_platform_baseline] : [],
+      var.essential_rule_group_arn != null ? [local.rg_essential] : [],
       local.managed_groups,
-        var.tenant_rule_group_arn != null ? [local.rg_tenant] : []
+      var.tenant_rule_group_arn != null ? [local.rg_tenant] : []
     ) : rg if rg != null
   ]
 

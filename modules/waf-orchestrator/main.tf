@@ -123,6 +123,23 @@ locals {
   }
 
   ############################################################
+  # Per-slot platform rule group toggles (default: enabled)
+  ############################################################
+  enable_essential_by_slot = {
+    for slot in var.slots :
+    slot => try(var.slot_config[slot].enable_essential, true)
+  }
+
+  enable_platform_baseline_by_slot = {
+    for slot in var.slots :
+    slot => try(var.slot_config[slot].enable_platform_baseline, true)
+  }
+
+  slots_with_essential = toset([
+    for slot in var.slots : slot if local.enable_essential_by_slot[slot]
+  ])
+
+  ############################################################
   # Platform baseline per-slot (merge global + slot-specific)
   ############################################################
   platform_baseline_by_slot = {
@@ -150,6 +167,7 @@ locals {
 
       trusted_request_rules = local.merged_trusted_request_rules_by_slot[slot]
     }
+    if local.enable_platform_baseline_by_slot[slot]
   }
 }
 
@@ -181,7 +199,7 @@ resource "terraform_data" "tenant_account_validation" {
 module "essential_rule_groups" {
   source = "../waf-rule-group-essential"
 
-  for_each = toset(var.slots)
+  for_each = local.slots_with_essential
 
   name_prefix = var.name_prefix
   environment = var.environment
@@ -434,7 +452,7 @@ module "default_policies" {
   environment = var.environment
   slot        = each.value
 
-  essential_rule_group_arn = module.essential_rule_groups[each.value].rule_group_arn
+  essential_rule_group_arn = try(module.essential_rule_groups[each.value].rule_group_arn, null)
 
   tenant_rule_group_arn = null
   tenant                = null
@@ -499,7 +517,7 @@ module "tenant_policies" {
   slot            = each.value.slot
   policy_selector = "tenant"
 
-  essential_rule_group_arn = module.essential_rule_groups[each.value.slot].rule_group_arn
+  essential_rule_group_arn = try(module.essential_rule_groups[each.value.slot].rule_group_arn, null)
   tenant_rule_group_arn    = module.tenant_rule_groups[each.key].rule_group_arn
 
   include_account_ids = try(var.tenants[each.value.tenant].include_account_ids, [])
@@ -549,7 +567,7 @@ resource "aws_wafv2_ip_set" "platform_healthcheck_allow" {
       try(var.platform.baseline.operational_allow.healthcheck_ip_sets.global.allowlist, []),
       try(var.platform.baseline.operational_allow.healthcheck_ip_sets[slot].allowlist, [])
     ))
-    if length(distinct(concat(
+    if local.enable_platform_baseline_by_slot[slot] && length(distinct(concat(
       try(var.platform.baseline.operational_allow.healthcheck_ip_sets.global.allowlist, []),
       try(var.platform.baseline.operational_allow.healthcheck_ip_sets[slot].allowlist, [])
     ))) > 0
@@ -571,7 +589,7 @@ resource "aws_wafv2_ip_set" "platform_curl_allow" {
       try(var.platform.baseline.operational_allow.curl_ip_sets.global.allowlist, []),
       try(var.platform.baseline.operational_allow.curl_ip_sets[slot].allowlist, [])
     ))
-    if length(distinct(concat(
+    if local.enable_platform_baseline_by_slot[slot] && length(distinct(concat(
       try(var.platform.baseline.operational_allow.curl_ip_sets.global.allowlist, []),
       try(var.platform.baseline.operational_allow.curl_ip_sets[slot].allowlist, [])
     ))) > 0
