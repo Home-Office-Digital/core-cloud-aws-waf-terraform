@@ -206,7 +206,7 @@ module "essential_rule_groups" {
   slot        = each.value
   tags        = var.tags
 
-  trusted_path_label_key = "awswaf:${var.aws_account_id}:label:platform:trusted:path"
+  trusted_path_label_key = "platform:trusted:path"
 }
 
 ############################################################
