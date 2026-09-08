@@ -305,7 +305,7 @@ resource "aws_wafv2_rule_group" "this" {
       }
 
       dynamic "rule_label" {
-        for_each = rule.value.action == "count" && try(rule.value.label, null) != null ? [1] : []
+        for_each = contains(["count", "allow"], rule.value.action) && try(rule.value.label, null) != null ? [1] : []
         content {
           name = rule.value.label
         }

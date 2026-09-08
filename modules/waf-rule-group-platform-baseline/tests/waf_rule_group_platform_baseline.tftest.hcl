@@ -74,3 +74,39 @@ run "minimal_plan_skips_optional_resources" {
     error_message = "Without an override, baseline rule group capacity should use the default value."
   }
 }
+
+run "allow_rule_emits_path_label_when_set" {
+  command = plan
+
+  variables {
+    name_prefix = "acme"
+    environment = "dev"
+    slot        = "blue"
+
+    trusted_request_rules = [
+      {
+        name              = "github-webhook"
+        action            = "allow"
+        label             = "platform:trusted:path"
+        methods           = ["POST"]
+        uri_exact         = ["/api/alm_integrations/webhook_github"]
+        uri_regex         = []
+        host_exact        = []
+        host_regex        = []
+        required_headers  = ["x-hub-signature-256"]
+        source_ipv4_cidrs = []
+      }
+    ]
+  }
+
+  assert {
+    condition = contains(
+      flatten([
+        for rule in aws_wafv2_rule_group.this.rule :
+        [for label in rule.rule_label : label.name]
+      ]),
+      "platform:trusted:path"
+    )
+    error_message = "Trusted request allow rules must still emit rule_label when label is set."
+  }
+}
