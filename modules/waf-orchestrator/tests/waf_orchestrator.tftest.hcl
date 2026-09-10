@@ -169,9 +169,9 @@ run "active_tenants_with_include_accounts_are_allowed" {
 
     tenants = {
       tenant_a = {
-        enabled            = true
-        enable_bot_control = false
-        tags               = {}
+        enabled             = true
+        enable_bot_control  = false
+        tags                = {}
         include_account_ids = ["111122223333"]
         ip_sets = {
           blue = {
@@ -223,7 +223,13 @@ run "exclude_mode_org_default_exposes_coverage_exclusion_tag" {
     }
 
     platform = {
-      baseline  = {}
+      baseline = {
+        core_rule_set_rules = {
+          global = {
+            SizeRestrictions_BODY = "COUNT"
+          }
+        }
+      }
       emergency = {}
     }
 

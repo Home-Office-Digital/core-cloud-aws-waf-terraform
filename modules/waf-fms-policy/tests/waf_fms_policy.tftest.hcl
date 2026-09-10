@@ -152,24 +152,68 @@ run "core_rule_set_can_run_in_count_mode" {
   }
 }
 
+run "core_rule_set_emits_per_rule_action_overrides" {
+  command = plan
+
+  variables {
+    name_prefix                   = "acme"
+    environment                   = "dev"
+    slot                          = "org-default"
+    policy_selector               = "default"
+    essential_rule_group_arn      = "arn:aws:wafv2:us-east-1:111122223333:regional/rulegroup/essential/12345678-1234-1234-1234-123456789012"
+    enable_core_rule_set          = true
+    core_rule_set_override_action = "NONE"
+    core_rule_set_rules = {
+      SizeRestrictions_BODY   = "COUNT"
+      CrossSiteScripting_BODY = "COUNT"
+      NoUserAgent_HEADER      = "NONE"
+    }
+    enable_ip_reputation = true
+    enable_anonymous_ip  = false
+    enable_bot_control   = false
+    enable_layer7_ddos   = true
+  }
+
+  assert {
+    condition = anytrue([
+      for rg in jsondecode(aws_fms_policy.this.security_service_policy_data[0].managed_service_data).preProcessRuleGroups :
+      try(rg.managedRuleGroupIdentifier.managedRuleGroupName, "") == "AWSManagedRulesCommonRuleSet" &&
+      try(rg.overrideAction.type, "") == "NONE" &&
+      length(try(rg.ruleActionOverrides, [])) == 2 &&
+      anytrue([
+        for o in try(rg.ruleActionOverrides, []) :
+        o.name == "SizeRestrictions_BODY" && contains(keys(o.actionToUse), "count")
+      ]) &&
+      anytrue([
+        for o in try(rg.ruleActionOverrides, []) :
+        o.name == "CrossSiteScripting_BODY" && contains(keys(o.actionToUse), "count")
+      ]) &&
+      !anytrue([
+        for o in try(rg.ruleActionOverrides, []) : o.name == "NoUserAgent_HEADER"
+      ])
+    ])
+    error_message = "CRS should emit COUNT ruleActionOverrides for named rules and omit NONE."
+  }
+}
+
 run "managed_only_policy_omits_essential_and_baseline" {
   command = plan
 
   variables {
-    name_prefix                               = "acme"
-    environment                               = "dev"
-    slot                                      = "org-default"
-    policy_selector                           = "default"
-    essential_rule_group_arn                  = null
-    platform_baseline_rule_group_arn          = null
-    platform_emergency_first_rule_group_arn   = "arn:aws:wafv2:us-east-1:111122223333:regional/rulegroup/emergency-first/12345678-1234-1234-1234-123456789012"
-    platform_emergency_last_rule_group_arn    = "arn:aws:wafv2:us-east-1:111122223333:regional/rulegroup/emergency-last/12345678-1234-1234-1234-123456789012"
-    enable_core_rule_set                      = true
-    core_rule_set_override_action             = "COUNT"
-    enable_ip_reputation                      = true
-    enable_anonymous_ip                       = false
-    enable_bot_control                        = false
-    enable_layer7_ddos                        = true
+    name_prefix                             = "acme"
+    environment                             = "dev"
+    slot                                    = "org-default"
+    policy_selector                         = "default"
+    essential_rule_group_arn                = null
+    platform_baseline_rule_group_arn        = null
+    platform_emergency_first_rule_group_arn = "arn:aws:wafv2:us-east-1:111122223333:regional/rulegroup/emergency-first/12345678-1234-1234-1234-123456789012"
+    platform_emergency_last_rule_group_arn  = "arn:aws:wafv2:us-east-1:111122223333:regional/rulegroup/emergency-last/12345678-1234-1234-1234-123456789012"
+    enable_core_rule_set                    = true
+    core_rule_set_override_action           = "COUNT"
+    enable_ip_reputation                    = true
+    enable_anonymous_ip                     = false
+    enable_bot_control                      = false
+    enable_layer7_ddos                      = true
   }
 
   assert {

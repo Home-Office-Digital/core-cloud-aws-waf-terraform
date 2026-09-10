@@ -2,14 +2,27 @@ locals {
   logging_config = (
     var.waf_log_destination_arn != null
     ? {
-    loggingConfiguration = {
-      logDestinationConfigs = [var.waf_log_destination_arn]
-      redactedFields        = []
-      loggingFilterConfigs  = null
+      loggingConfiguration = {
+        logDestinationConfigs = [var.waf_log_destination_arn]
+        redactedFields        = []
+        loggingFilterConfigs  = null
+      }
     }
-  }
     : {}
   )
+
+  core_rule_set_action_overrides = [
+    for rule_name, action in var.core_rule_set_rules : {
+      name = rule_name
+      actionToUse = (
+        action == "COUNT" ? { count = {} } :
+        action == "BLOCK" ? { block = {} } :
+        action == "ALLOW" ? { allow = {} } :
+        null
+      )
+    }
+    if action != "NONE"
+  ]
 
   ############################################################
   # 1) Platform Emergency Rule Groups (optional)
@@ -95,7 +108,7 @@ locals {
   } : null
 
   managed_groups = [
-      var.enable_core_rule_set ? {
+    var.enable_core_rule_set ? {
       ruleGroupType          = "ManagedRuleGroup"
       ruleGroupArn           = null
       overrideAction         = { type = var.core_rule_set_override_action }
@@ -107,9 +120,10 @@ locals {
         vendorName           = "AWS"
         managedRuleGroupName = "AWSManagedRulesCommonRuleSet"
       }
+      ruleActionOverrides = length(local.core_rule_set_action_overrides) > 0 ? local.core_rule_set_action_overrides : null
     } : null,
 
-      var.enable_ip_reputation ? {
+    var.enable_ip_reputation ? {
       ruleGroupType          = "ManagedRuleGroup"
       ruleGroupArn           = null
       overrideAction         = { type = "NONE" }
@@ -123,7 +137,7 @@ locals {
       }
     } : null,
 
-      var.enable_anonymous_ip ? {
+    var.enable_anonymous_ip ? {
       ruleGroupType          = "ManagedRuleGroup"
       ruleGroupArn           = null
       overrideAction         = { type = "NONE" }
@@ -137,7 +151,7 @@ locals {
       }
     } : null,
 
-      var.enable_bot_control ? {
+    var.enable_bot_control ? {
       ruleGroupType          = "ManagedRuleGroup"
       ruleGroupArn           = null
       overrideAction         = { type = "NONE" }
@@ -159,15 +173,15 @@ locals {
       # Only emit overrides for rules not set to NONE
       ruleActionOverrides = length([
         for k, v in var.bot_control_rules : k if v != "NONE"
-      ]) > 0 ? [
+        ]) > 0 ? [
         for rule_name, action in var.bot_control_rules :
         {
-          name        = rule_name
+          name = rule_name
           actionToUse = (
             action == "COUNT" ? { count = {} } :
-              action == "BLOCK" ? { block = {} } :
-                action == "ALLOW" ? { allow = {} } :
-                null
+            action == "BLOCK" ? { block = {} } :
+            action == "ALLOW" ? { allow = {} } :
+            null
           )
         }
         if action != "NONE"
@@ -192,7 +206,7 @@ locals {
 
   post_rules = [
     for rg in concat(
-        var.platform_emergency_last_rule_group_arn != null ? [local.rg_platform_emergency_last] : []
+      var.platform_emergency_last_rule_group_arn != null ? [local.rg_platform_emergency_last] : []
     ) : rg if rg != null
   ]
 
@@ -237,7 +251,7 @@ locals {
       "waf:selector" = "tenant"
       "waf:slot"     = var.slot
     },
-      var.tenant != null ? { "waf:tenant" = var.tenant } : {}
+    var.tenant != null ? { "waf:tenant" = var.tenant } : {}
   )
 
   default_include_match_tags = {
@@ -256,10 +270,10 @@ locals {
     var.resource_tags != null
     ? var.resource_tags
     : (
-    var.policy_selector == "tenant"
-    ? local.tenant_match_tags
-    : local.default_include_match_tags
-  )
+      var.policy_selector == "tenant"
+      ? local.tenant_match_tags
+      : local.default_include_match_tags
+    )
   )
 
   effective_resource_tags = local.exclude_mode ? local.default_exclusion_tags : local.effective_include_tags
@@ -271,7 +285,7 @@ locals {
       "waf:slot"     = var.slot
       "waf:selector" = var.policy_selector
     },
-      var.tenant != null ? { "waf:tenant" = var.tenant } : {}
+    var.tenant != null ? { "waf:tenant" = var.tenant } : {}
   )
 }
 
