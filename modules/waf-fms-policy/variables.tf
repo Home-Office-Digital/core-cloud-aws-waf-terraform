@@ -94,13 +94,26 @@ variable "enable_core_rule_set" {
 }
 
 variable "core_rule_set_override_action" {
-  description = "Override action for AWSManagedRulesCommonRuleSet. NONE uses managed defaults (typically BLOCK); COUNT monitors without blocking."
+  description = "Group override for AWSManagedRulesCommonRuleSet. NONE uses each rule's managed action (typically BLOCK). COUNT counts every CRS rule unless a per-rule override is set. Keep NONE when using core_rule_set_rules to COUNT only some rules."
   type        = string
   default     = "NONE"
 
   validation {
     condition     = contains(["NONE", "COUNT"], var.core_rule_set_override_action)
     error_message = "core_rule_set_override_action must be NONE or COUNT."
+  }
+}
+
+variable "core_rule_set_rules" {
+  description = "Map of AWSManagedRulesCommonRuleSet rule name to action override. Values: COUNT, BLOCK, ALLOW, NONE (NONE omits the override). Slot merge is global then per-slot, same as bot_control_rules."
+  type        = map(string)
+  default     = {}
+
+  validation {
+    condition = alltrue([
+      for action in values(var.core_rule_set_rules) : contains(["COUNT", "BLOCK", "ALLOW", "NONE"], action)
+    ])
+    error_message = "core_rule_set_rules values must be COUNT, BLOCK, ALLOW, or NONE."
   }
 }
 
@@ -164,7 +177,7 @@ variable "tags" {
 variable "resource_type_list" {
   description = "Resource types this FMS policy applies to."
   type        = list(string)
-  default     = [
+  default = [
     "AWS::ElasticLoadBalancingV2::LoadBalancer",
     "AWS::ApiGateway::Stage",
   ]

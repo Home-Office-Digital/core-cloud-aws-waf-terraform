@@ -134,6 +134,10 @@ variable "platform" {
       # Values: COUNT | BLOCK | ALLOW | NONE
       bot_control_rules = optional(any, {})
 
+      # AWSManagedRulesCommonRuleSet per-rule overrides (same merge as bot_control_rules)
+      # Values: COUNT | BLOCK | ALLOW | NONE
+      core_rule_set_rules = optional(any, {})
+
       # COMMON = only COMMON rules active
       # TARGETED = COMMON + TGT_ rules active (default)
       bot_control_inspection_level = optional(string, "TARGETED")

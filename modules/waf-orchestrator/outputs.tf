@@ -51,14 +51,14 @@ output "default_resource_tags_by_slot" {
     for slot in var.slots : slot => (
       try(var.slot_config[slot].policy_selector, "default_include") == "default"
       ? {
-          # Path C / skip catch-all: resources with this tag are not org-default.
-          "waf:coverage" = "custom"
-        }
+        # Path C / skip catch-all: resources with this tag are not org-default.
+        "waf:coverage" = "custom"
+      }
       : {
-          "waf:coverage" = "custom"
-          "waf:selector" = try(var.slot_config[slot].policy_selector, "default_include")
-          "waf:slot"     = slot
-        }
+        "waf:coverage" = "custom"
+        "waf:selector" = try(var.slot_config[slot].policy_selector, "default_include")
+        "waf:slot"     = slot
+      }
     )
   }
 }

@@ -122,6 +122,13 @@ locals {
     )
   }
 
+  merged_core_rule_set_rules_by_slot = {
+    for slot in var.slots : slot => merge(
+      try(var.platform.baseline.core_rule_set_rules.global, {}),
+      try(var.platform.baseline.core_rule_set_rules[slot], {})
+    )
+  }
+
   ############################################################
   # Per-slot platform rule group toggles (default: enabled)
   ############################################################
@@ -482,6 +489,7 @@ module "default_policies" {
 
   bot_control_rules            = local.merged_bot_control_rules_by_slot[each.value]
   bot_control_inspection_level = try(var.platform.baseline.bot_control_inspection_level, "TARGETED")
+  core_rule_set_rules          = local.merged_core_rule_set_rules_by_slot[each.value]
 
   antiddos_sensitivity_to_block = var.antiddos_sensitivity_to_block
   antiddos_challenge_usage      = var.antiddos_challenge_usage
@@ -539,6 +547,8 @@ module "tenant_policies" {
     var.slot_config[each.value.slot].core_rule_set_override_action,
     "NONE"
   )
+
+  core_rule_set_rules = local.merged_core_rule_set_rules_by_slot[each.value.slot]
 
   enable_bot_control = try(
     var.tenants[each.value.tenant].enable_bot_control,
