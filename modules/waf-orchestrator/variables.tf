@@ -26,8 +26,9 @@ variable "slots" {
 }
 
 variable "slot_config" {
-  type    = map(any)
-  default = {}
+  description = "Per-slot overrides. Optional include_account_ids scopes that slot's default FMS policy to an include_map. When set, platform_exclude_account_ids is not applied to that slot (FMS include_map and exclude_map are mutually exclusive)."
+  type        = map(any)
+  default     = {}
 }
 
 ############################################################

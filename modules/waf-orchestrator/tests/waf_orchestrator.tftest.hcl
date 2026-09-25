@@ -267,4 +267,64 @@ run "exclude_mode_org_default_exposes_coverage_exclusion_tag" {
     )
     error_message = "org-default must still create emergency first/last rule groups."
   }
+
+  assert {
+    condition     = length(output.default_policies["org-default"].include_account_ids) == 0
+    error_message = "org-default without slot include_account_ids should remain org-wide exclude-mode."
+  }
+}
+
+run "default_policy_include_account_ids_scopes_slot_and_clears_exclude" {
+  command = plan
+
+  variables {
+    name_prefix                  = "acme"
+    environment                  = "prod"
+    aws_account_id               = "111122223333"
+    slots                        = ["org-default", "alb-external-blue"]
+    platform_exclude_account_ids = ["999999999999"]
+
+    slot_config = {
+      org-default = {
+        policy_selector               = "default"
+        include_account_ids           = ["034034141086"]
+        enable_platform_baseline      = false
+        enable_essential              = false
+        enable_anonymous_ip           = false
+        enable_bot_control            = false
+      }
+      alb-external-blue = {
+        policy_selector          = "default_include"
+        include_account_ids      = []
+        enable_platform_baseline = true
+        enable_essential         = true
+        enable_anonymous_ip      = true
+        enable_bot_control       = true
+      }
+    }
+
+    platform = {
+      emergency = {}
+      baseline  = {}
+    }
+
+    tenants = {}
+  }
+
+  assert {
+    condition = (
+      length(output.default_policies["org-default"].include_account_ids) == 1 &&
+      contains(output.default_policies["org-default"].include_account_ids, "034034141086") &&
+      length(output.default_policies["org-default"].exclude_account_ids) == 0
+    )
+    error_message = "A default slot with include_account_ids must use include_map only."
+  }
+
+  assert {
+    condition = (
+      length(output.default_policies["alb-external-blue"].include_account_ids) == 0 &&
+      contains(output.default_policies["alb-external-blue"].exclude_account_ids, "999999999999")
+    )
+    error_message = "Slots without include_account_ids should keep platform exclude_map."
+  }
 }

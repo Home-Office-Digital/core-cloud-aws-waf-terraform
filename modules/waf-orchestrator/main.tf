@@ -26,6 +26,13 @@ locals {
     local.active_tenant_included_accounts
   ))
 
+  # Optional per-slot include_map for default policies (e.g. prod org-default
+  # limited to a pilot account). When set, that slot must not also use exclude_map.
+  default_policy_include_account_ids = {
+    for slot in var.slots :
+    slot => distinct(try(var.slot_config[slot].include_account_ids, []))
+  }
+
   ############################################################
   # Slots per tenant:
   # - if tenant.slots set -> use it
@@ -464,7 +471,12 @@ module "default_policies" {
   tenant_rule_group_arn = null
   tenant                = null
 
-  exclude_account_ids = local.effective_platform_exclude
+  include_account_ids = local.default_policy_include_account_ids[each.value]
+  exclude_account_ids = (
+    length(local.default_policy_include_account_ids[each.value]) > 0
+    ? []
+    : local.effective_platform_exclude
+  )
 
   policy_selector = try(var.slot_config[each.value].policy_selector, "default_include")
 
