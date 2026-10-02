@@ -17,19 +17,25 @@ variable "tenant" {
 }
 
 variable "include_account_ids" {
-  description = "Account IDs to scope this FMS policy to. Mutually exclusive with exclude_account_ids and exclude_orgunit_ids."
+  description = "Account IDs for include_map. Mutually exclusive with exclude_account_ids and exclude_orgunit_ids."
+  type        = list(string)
+  default     = []
+}
+
+variable "include_orgunit_ids" {
+  description = "OU IDs for include_map (OU and all current/future child OUs/accounts). Mutually exclusive with exclude_account_ids and exclude_orgunit_ids."
   type        = list(string)
   default     = []
 }
 
 variable "exclude_account_ids" {
-  description = "Account IDs to exclude from this FMS policy."
+  description = "Account IDs for exclude_map. Mutually exclusive with include_account_ids and include_orgunit_ids."
   type        = list(string)
   default     = []
 }
 
 variable "exclude_orgunit_ids" {
-  description = "AWS Organizations OU IDs to exclude from this FMS policy (and all child OUs/accounts). Mutually exclusive with include_account_ids."
+  description = "OU IDs for exclude_map (OU and all current/future child OUs/accounts). Mutually exclusive with include_account_ids and include_orgunit_ids."
   type        = list(string)
   default     = []
 }

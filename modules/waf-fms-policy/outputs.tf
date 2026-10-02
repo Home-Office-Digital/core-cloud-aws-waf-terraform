@@ -10,6 +10,10 @@ output "include_account_ids" {
   value = var.include_account_ids
 }
 
+output "include_orgunit_ids" {
+  value = var.include_orgunit_ids
+}
+
 output "exclude_account_ids" {
   value = var.exclude_account_ids
 }

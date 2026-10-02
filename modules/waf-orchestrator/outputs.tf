@@ -6,6 +6,7 @@ output "default_policies" {
       policy_id           = try(m.policy_id, null)
       policy_name         = try(m.policy_name, null)
       include_account_ids = try(m.include_account_ids, [])
+      include_orgunit_ids = try(m.include_orgunit_ids, [])
       exclude_account_ids = try(m.exclude_account_ids, [])
       exclude_orgunit_ids = try(m.exclude_orgunit_ids, [])
     }
@@ -85,6 +86,16 @@ output "tenant_resource_tags" {
       "waf:slot"     = value.slot
     }
   }
+}
+
+output "effective_platform_include_account_ids" {
+  description = "Account IDs added to include_map on platform default policies."
+  value       = var.platform_include_account_ids
+}
+
+output "effective_platform_include_orgunit_ids" {
+  description = "OU IDs added to include_map on platform default policies."
+  value       = var.platform_include_orgunit_ids
 }
 
 output "effective_platform_exclude_account_ids" {
