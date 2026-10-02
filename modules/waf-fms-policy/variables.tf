@@ -17,13 +17,19 @@ variable "tenant" {
 }
 
 variable "include_account_ids" {
-  description = "Account IDs to scope this FMS policy to. Mutually exclusive with exclude_account_ids."
+  description = "Account IDs to scope this FMS policy to. Mutually exclusive with exclude_account_ids and exclude_orgunit_ids."
   type        = list(string)
   default     = []
 }
 
 variable "exclude_account_ids" {
   description = "Account IDs to exclude from this FMS policy."
+  type        = list(string)
+  default     = []
+}
+
+variable "exclude_orgunit_ids" {
+  description = "AWS Organizations OU IDs to exclude from this FMS policy (and all child OUs/accounts). Mutually exclusive with include_account_ids."
   type        = list(string)
   default     = []
 }

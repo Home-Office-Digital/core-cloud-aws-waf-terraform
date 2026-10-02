@@ -33,6 +33,11 @@ locals {
     slot => distinct(try(var.slot_config[slot].include_account_ids, []))
   }
 
+  default_policy_exclude_orgunit_ids = {
+    for slot in var.slots :
+    slot => distinct(try(var.slot_config[slot].exclude_orgunit_ids, []))
+  }
+
   ############################################################
   # Slots per tenant:
   # - if tenant.slots set -> use it
@@ -476,6 +481,11 @@ module "default_policies" {
     length(local.default_policy_include_account_ids[each.value]) > 0
     ? []
     : local.effective_platform_exclude
+  )
+  exclude_orgunit_ids = (
+    length(local.default_policy_include_account_ids[each.value]) > 0
+    ? []
+    : local.default_policy_exclude_orgunit_ids[each.value]
   )
 
   policy_selector = try(var.slot_config[each.value].policy_selector, "default_include")

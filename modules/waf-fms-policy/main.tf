@@ -306,9 +306,10 @@ resource "aws_fms_policy" "this" {
   }
 
   dynamic "exclude_map" {
-    for_each = length(var.exclude_account_ids) > 0 ? [1] : []
+    for_each = (length(var.exclude_account_ids) > 0 || length(var.exclude_orgunit_ids) > 0) ? [1] : []
     content {
-      account = var.exclude_account_ids
+      account = length(var.exclude_account_ids) > 0 ? var.exclude_account_ids : null
+      orgunit = length(var.exclude_orgunit_ids) > 0 ? var.exclude_orgunit_ids : null
     }
   }
 
@@ -339,8 +340,8 @@ resource "aws_fms_policy" "this" {
       error_message = "tenant must be null unless policy_selector=tenant."
     }
     precondition {
-      condition     = !(length(var.include_account_ids) > 0 && length(var.exclude_account_ids) > 0)
-      error_message = "include_account_ids and exclude_account_ids are mutually exclusive."
+      condition     = !(length(var.include_account_ids) > 0 && (length(var.exclude_account_ids) > 0 || length(var.exclude_orgunit_ids) > 0))
+      error_message = "include_account_ids cannot be combined with exclude_account_ids or exclude_orgunit_ids."
     }
   }
 }

@@ -7,6 +7,7 @@ output "default_policies" {
       policy_name         = try(m.policy_name, null)
       include_account_ids = try(m.include_account_ids, [])
       exclude_account_ids = try(m.exclude_account_ids, [])
+      exclude_orgunit_ids = try(m.exclude_orgunit_ids, [])
     }
   }
 }
