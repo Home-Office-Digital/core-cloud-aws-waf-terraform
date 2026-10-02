@@ -107,6 +107,68 @@ run "include_and_exclude_accounts_are_mutually_exclusive" {
   expect_failures = [aws_fms_policy.this]
 }
 
+run "include_map_accepts_accounts_and_orgunits" {
+  command = plan
+
+  variables {
+    name_prefix              = "acme"
+    environment              = "prod"
+    slot                     = "org-default"
+    policy_selector          = "default"
+    include_account_ids      = ["111122223333"]
+    include_orgunit_ids      = ["ou-82pp-include"]
+    essential_rule_group_arn = "arn:aws:wafv2:us-east-1:111122223333:regional/rulegroup/essential/12345678-1234-1234-1234-123456789012"
+  }
+
+  assert {
+    condition = (
+      contains(aws_fms_policy.this.include_map[0].account, "111122223333") &&
+      contains(aws_fms_policy.this.include_map[0].orgunit, "ou-82pp-include") &&
+      length(aws_fms_policy.this.exclude_map) == 0
+    )
+    error_message = "include_map should accept both accounts and OUs and omit exclude_map."
+  }
+}
+
+run "exclude_map_accepts_accounts_and_orgunits" {
+  command = plan
+
+  variables {
+    name_prefix              = "acme"
+    environment              = "dev"
+    slot                     = "org-default"
+    policy_selector          = "default"
+    exclude_account_ids      = ["444455556666"]
+    exclude_orgunit_ids      = ["ou-82pp-yuxw4n8j"]
+    essential_rule_group_arn = "arn:aws:wafv2:us-east-1:111122223333:regional/rulegroup/essential/12345678-1234-1234-1234-123456789012"
+  }
+
+  assert {
+    condition = (
+      contains(aws_fms_policy.this.exclude_map[0].account, "444455556666") &&
+      contains(aws_fms_policy.this.exclude_map[0].orgunit, "ou-82pp-yuxw4n8j") &&
+      length(aws_fms_policy.this.include_map) == 0
+    )
+    error_message = "exclude_map should accept both accounts and OUs and omit include_map."
+  }
+}
+
+run "include_orgunit_and_exclude_orgunit_are_mutually_exclusive" {
+  command = plan
+
+  variables {
+    name_prefix              = "acme"
+    environment              = "dev"
+    slot                     = "blue"
+    policy_selector          = "default"
+    include_orgunit_ids      = ["ou-82pp-include"]
+    exclude_orgunit_ids      = ["ou-82pp-yuxw4n8j"]
+    essential_rule_group_arn = "arn:aws:wafv2:us-east-1:111122223333:regional/rulegroup/essential/12345678-1234-1234-1234-123456789012"
+  }
+
+  expect_failures = [aws_fms_policy.this]
+}
+
 run "single_resource_type_uses_resource_type_not_list" {
   command = plan
 

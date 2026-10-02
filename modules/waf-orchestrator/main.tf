@@ -26,11 +26,58 @@ locals {
     local.active_tenant_included_accounts
   ))
 
-  # Optional per-slot include_map for default policies (e.g. prod org-default
-  # limited to a pilot account). When set, that slot must not also use exclude_map.
+  # Optional include_map / exclude_map for default policies.
+  # A slot uses include_map only when that slot lists include accounts/OUs.
+  # Platform include lists are merged onto those include-map slots only.
+  # FMS allows one map per policy: include-map slots omit exclude_map.
   default_policy_include_account_ids = {
     for slot in var.slots :
-    slot => distinct(try(var.slot_config[slot].include_account_ids, []))
+    slot => (
+      length(try(var.slot_config[slot].include_account_ids, [])) > 0 ||
+      length(try(var.slot_config[slot].include_orgunit_ids, [])) > 0
+      ? distinct(concat(
+        var.platform_include_account_ids,
+        try(var.slot_config[slot].include_account_ids, [])
+      ))
+      : []
+    )
+  }
+
+  default_policy_include_orgunit_ids = {
+    for slot in var.slots :
+    slot => (
+      length(try(var.slot_config[slot].include_account_ids, [])) > 0 ||
+      length(try(var.slot_config[slot].include_orgunit_ids, [])) > 0
+      ? distinct(concat(
+        var.platform_include_orgunit_ids,
+        try(var.slot_config[slot].include_orgunit_ids, [])
+      ))
+      : []
+    )
+  }
+
+  default_policy_uses_include_map = {
+    for slot in var.slots :
+    slot => (
+      length(local.default_policy_include_account_ids[slot]) > 0 ||
+      length(local.default_policy_include_orgunit_ids[slot]) > 0
+    )
+  }
+
+  default_policy_exclude_account_ids = {
+    for slot in var.slots :
+    slot => local.default_policy_uses_include_map[slot] ? [] : distinct(concat(
+      local.effective_platform_exclude,
+      try(var.slot_config[slot].exclude_account_ids, [])
+    ))
+  }
+
+  default_policy_exclude_orgunit_ids = {
+    for slot in var.slots :
+    slot => local.default_policy_uses_include_map[slot] ? [] : distinct(concat(
+      var.platform_exclude_orgunit_ids,
+      try(var.slot_config[slot].exclude_orgunit_ids, [])
+    ))
   }
 
   ############################################################
@@ -197,12 +244,13 @@ resource "terraform_data" "tenant_account_validation" {
     if try(tenant.enabled, true)
     && length(local.tenant_slots[tenant_name]) > 0
     && length(try(tenant.include_account_ids, [])) == 0
+    && length(try(tenant.include_orgunit_ids, [])) == 0
   }
 
   lifecycle {
     precondition {
       condition     = each.value == null
-      error_message = "Tenant '${each.key}' resolves to one or more active slots but does not define include_account_ids. Tenant policies must be account-scoped and cannot be org-wide."
+      error_message = "Tenant '${each.key}' resolves to one or more active slots but does not define include_account_ids or include_orgunit_ids. Tenant policies must be scoped and cannot be org-wide."
     }
   }
 }
@@ -472,11 +520,9 @@ module "default_policies" {
   tenant                = null
 
   include_account_ids = local.default_policy_include_account_ids[each.value]
-  exclude_account_ids = (
-    length(local.default_policy_include_account_ids[each.value]) > 0
-    ? []
-    : local.effective_platform_exclude
-  )
+  include_orgunit_ids = local.default_policy_include_orgunit_ids[each.value]
+  exclude_account_ids = local.default_policy_exclude_account_ids[each.value]
+  exclude_orgunit_ids = local.default_policy_exclude_orgunit_ids[each.value]
 
   policy_selector = try(var.slot_config[each.value].policy_selector, "default_include")
 
@@ -541,6 +587,7 @@ module "tenant_policies" {
   tenant_rule_group_arn    = module.tenant_rule_groups[each.key].rule_group_arn
 
   include_account_ids = try(var.tenants[each.value.tenant].include_account_ids, [])
+  include_orgunit_ids = try(var.tenants[each.value.tenant].include_orgunit_ids, [])
 
   resource_type_list = try(
     var.slot_config[each.value.slot].resource_type_list,

@@ -283,6 +283,7 @@ run "default_policy_include_account_ids_scopes_slot_and_clears_exclude" {
     aws_account_id               = "111122223333"
     slots                        = ["org-default", "alb-external-blue"]
     platform_exclude_account_ids = ["999999999999"]
+    platform_exclude_orgunit_ids = ["ou-82pp-yuxw4n8j"]
 
     slot_config = {
       org-default = {
@@ -321,10 +322,113 @@ run "default_policy_include_account_ids_scopes_slot_and_clears_exclude" {
   }
 
   assert {
+    condition     = length(output.default_policies["org-default"].exclude_orgunit_ids) == 0
+    error_message = "include_map slots must omit exclude_orgunit_ids because FMS include and exclude maps are mutually exclusive."
+  }
+
+  assert {
     condition = (
       length(output.default_policies["alb-external-blue"].include_account_ids) == 0 &&
-      contains(output.default_policies["alb-external-blue"].exclude_account_ids, "999999999999")
+      contains(output.default_policies["alb-external-blue"].exclude_account_ids, "999999999999") &&
+      contains(output.default_policies["alb-external-blue"].exclude_orgunit_ids, "ou-82pp-yuxw4n8j")
     )
-    error_message = "Slots without include_account_ids should keep platform exclude_map."
+    error_message = "Slots without include_account_ids should keep platform exclude_map including excluded OUs."
+  }
+}
+
+run "default_policy_exclude_orgunit_ids_on_org_wide_slot" {
+  command = plan
+
+  variables {
+    name_prefix                  = "acme"
+    environment                  = "dev"
+    aws_account_id               = "111122223333"
+    slots                        = ["org-default"]
+    platform_exclude_orgunit_ids = ["ou-82pp-yuxw4n8j"]
+
+    slot_config = {
+      org-default = {
+        policy_selector          = "default"
+        enable_platform_baseline = false
+        enable_essential         = false
+        enable_anonymous_ip      = false
+        enable_bot_control       = false
+      }
+    }
+
+    platform = {
+      emergency = {}
+      baseline  = {}
+    }
+
+    tenants = {}
+  }
+
+  assert {
+    condition = (
+      length(output.default_policies["org-default"].include_account_ids) == 0 &&
+      length(output.default_policies["org-default"].exclude_orgunit_ids) == 1 &&
+      contains(output.default_policies["org-default"].exclude_orgunit_ids, "ou-82pp-yuxw4n8j")
+    )
+    error_message = "Org-wide default slots should pass exclude_orgunit_ids into exclude_map."
+  }
+}
+
+run "default_policy_include_orgunit_ids_uses_include_map" {
+  command = plan
+
+  variables {
+    name_prefix                  = "acme"
+    environment                  = "prod"
+    aws_account_id               = "111122223333"
+    slots                        = ["org-default", "alb-external-blue"]
+    platform_include_orgunit_ids = ["ou-82pp-include"]
+    platform_exclude_account_ids = ["999999999999"]
+    platform_exclude_orgunit_ids = ["ou-82pp-yuxw4n8j"]
+
+    slot_config = {
+      org-default = {
+        policy_selector               = "default"
+        include_account_ids           = ["034034141086"]
+        enable_platform_baseline      = false
+        enable_essential              = false
+        enable_anonymous_ip           = false
+        enable_bot_control            = false
+      }
+      alb-external-blue = {
+        policy_selector          = "default_include"
+        include_account_ids      = []
+        enable_platform_baseline = true
+        enable_essential         = true
+        enable_anonymous_ip      = true
+        enable_bot_control       = true
+      }
+    }
+
+    platform = {
+      emergency = {}
+      baseline  = {}
+    }
+
+    tenants = {}
+  }
+
+  assert {
+    condition = (
+      contains(output.default_policies["org-default"].include_account_ids, "034034141086") &&
+      contains(output.default_policies["org-default"].include_orgunit_ids, "ou-82pp-include") &&
+      length(output.default_policies["org-default"].exclude_account_ids) == 0 &&
+      length(output.default_policies["org-default"].exclude_orgunit_ids) == 0
+    )
+    error_message = "Include-map slots should receive platform include OUs and omit exclude_map."
+  }
+
+  assert {
+    condition = (
+      length(output.default_policies["alb-external-blue"].include_orgunit_ids) == 0 &&
+      contains(output.default_policies["alb-external-blue"].exclude_account_ids, "999999999999") &&
+      contains(output.default_policies["alb-external-blue"].exclude_orgunit_ids, "ou-82pp-yuxw4n8j")
+    )
+    error_message = "Exclude-map slots should ignore platform include lists and keep exclude_map."
   }
 }

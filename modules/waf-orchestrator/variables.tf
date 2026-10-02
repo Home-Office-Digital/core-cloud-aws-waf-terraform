@@ -26,7 +26,7 @@ variable "slots" {
 }
 
 variable "slot_config" {
-  description = "Per-slot overrides. Optional include_account_ids scopes that slot's default FMS policy to an include_map. When set, platform_exclude_account_ids is not applied to that slot (FMS include_map and exclude_map are mutually exclusive)."
+  description = "Per-slot overrides. Optional include_account_ids / include_orgunit_ids put that slot on include_map. Optional exclude_account_ids / exclude_orgunit_ids add to exclude_map. FMS include_map and exclude_map are mutually exclusive: any include IDs omit all excludes for that slot."
   type        = map(any)
   default     = {}
 }
@@ -75,8 +75,26 @@ variable "waf_log_destination_arn_by_slot" {
   default     = {}
 }
 
+variable "platform_include_account_ids" {
+  description = "Account IDs merged into include_map on platform default policies that already use include_map (slot_config include_account_ids or include_orgunit_ids)."
+  type        = list(string)
+  default     = []
+}
+
+variable "platform_include_orgunit_ids" {
+  description = "OU IDs merged into include_map on platform default policies that already use include_map (slot_config include_account_ids or include_orgunit_ids)."
+  type        = list(string)
+  default     = []
+}
+
 variable "platform_exclude_account_ids" {
   description = "Account IDs to exclude from platform default FMS policies. Platform controlled."
+  type        = list(string)
+  default     = []
+}
+
+variable "platform_exclude_orgunit_ids" {
+  description = "AWS Organizations OU IDs to exclude from all platform default FMS policies that use exclude_map (skipped on slots that use include_map)."
   type        = list(string)
   default     = []
 }
@@ -168,6 +186,7 @@ variable "tenants" {
     enable_bot_control  = bool
     tags                = map(string)
     include_account_ids = optional(list(string), [])
+    include_orgunit_ids = optional(list(string), [])
     exclude_account_ids = optional(list(string), [])
 
     slots = optional(list(string), [])
