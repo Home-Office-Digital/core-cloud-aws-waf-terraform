@@ -91,3 +91,8 @@ output "effective_platform_exclude_account_ids" {
   description = "Effective list of account IDs excluded from platform default policies (platform + all tenant exclusions combined)."
   value       = local.effective_platform_exclude
 }
+
+output "effective_platform_exclude_orgunit_ids" {
+  description = "OU IDs excluded from platform default policies that use exclude_map."
+  value       = var.platform_exclude_orgunit_ids
+}

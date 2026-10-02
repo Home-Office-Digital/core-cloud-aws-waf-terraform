@@ -35,7 +35,10 @@ locals {
 
   default_policy_exclude_orgunit_ids = {
     for slot in var.slots :
-    slot => distinct(try(var.slot_config[slot].exclude_orgunit_ids, []))
+    slot => distinct(concat(
+      var.platform_exclude_orgunit_ids,
+      try(var.slot_config[slot].exclude_orgunit_ids, [])
+    ))
   }
 
   ############################################################

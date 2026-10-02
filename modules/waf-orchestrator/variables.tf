@@ -81,6 +81,12 @@ variable "platform_exclude_account_ids" {
   default     = []
 }
 
+variable "platform_exclude_orgunit_ids" {
+  description = "AWS Organizations OU IDs to exclude from all platform default FMS policies that use exclude_map (skipped on slots with include_account_ids)."
+  type        = list(string)
+  default     = []
+}
+
 ############################################################
 # Platform controls (Emergency + Baseline)
 ############################################################

@@ -283,12 +283,12 @@ run "default_policy_include_account_ids_scopes_slot_and_clears_exclude" {
     aws_account_id               = "111122223333"
     slots                        = ["org-default", "alb-external-blue"]
     platform_exclude_account_ids = ["999999999999"]
+    platform_exclude_orgunit_ids = ["ou-82pp-yuxw4n8j"]
 
     slot_config = {
       org-default = {
         policy_selector               = "default"
         include_account_ids           = ["034034141086"]
-        exclude_orgunit_ids           = ["ou-82pp-yuxw4n8j"]
         enable_platform_baseline      = false
         enable_essential              = false
         enable_anonymous_ip           = false
@@ -297,7 +297,6 @@ run "default_policy_include_account_ids_scopes_slot_and_clears_exclude" {
       alb-external-blue = {
         policy_selector          = "default_include"
         include_account_ids      = []
-        exclude_orgunit_ids      = []
         enable_platform_baseline = true
         enable_essential         = true
         enable_anonymous_ip      = true
@@ -330,9 +329,10 @@ run "default_policy_include_account_ids_scopes_slot_and_clears_exclude" {
   assert {
     condition = (
       length(output.default_policies["alb-external-blue"].include_account_ids) == 0 &&
-      contains(output.default_policies["alb-external-blue"].exclude_account_ids, "999999999999")
+      contains(output.default_policies["alb-external-blue"].exclude_account_ids, "999999999999") &&
+      contains(output.default_policies["alb-external-blue"].exclude_orgunit_ids, "ou-82pp-yuxw4n8j")
     )
-    error_message = "Slots without include_account_ids should keep platform exclude_map."
+    error_message = "Slots without include_account_ids should keep platform exclude_map including excluded OUs."
   }
 }
 
@@ -340,15 +340,15 @@ run "default_policy_exclude_orgunit_ids_on_org_wide_slot" {
   command = plan
 
   variables {
-    name_prefix    = "acme"
-    environment    = "dev"
-    aws_account_id = "111122223333"
-    slots          = ["org-default"]
+    name_prefix                  = "acme"
+    environment                  = "dev"
+    aws_account_id               = "111122223333"
+    slots                        = ["org-default"]
+    platform_exclude_orgunit_ids = ["ou-82pp-yuxw4n8j"]
 
     slot_config = {
       org-default = {
         policy_selector          = "default"
-        exclude_orgunit_ids      = ["ou-82pp-yuxw4n8j"]
         enable_platform_baseline = false
         enable_essential         = false
         enable_anonymous_ip      = false
