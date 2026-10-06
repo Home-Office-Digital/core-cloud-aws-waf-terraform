@@ -17,7 +17,7 @@ variable "destination_s3_bucket_arn" {
 
 variable "s3_error_output_prefix" {
   type    = string
-  default = "waf-logs-errors"
+  default = "waf-errors"
 }
 
 variable "stream_name_prefix" {

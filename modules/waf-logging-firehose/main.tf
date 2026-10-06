@@ -161,7 +161,7 @@ resource "aws_kinesis_firehose_delivery_stream" "this" {
     role_arn   = aws_iam_role.firehose.arn
     bucket_arn = var.destination_s3_bucket_arn
 
-    prefix = "waf/AWSLogs/!{partitionKeyFromQuery:account_id}/waf/!{partitionKeyFromQuery:region}/!{partitionKeyFromQuery:webacl}/!{partitionKeyFromQuery:year}/!{partitionKeyFromQuery:month}/!{partitionKeyFromQuery:day}/!{partitionKeyFromQuery:hour}/"
+    prefix = "waf/!{partitionKeyFromQuery:year}/!{partitionKeyFromQuery:month}/!{partitionKeyFromQuery:day}/!{partitionKeyFromQuery:hour}/!{partitionKeyFromQuery:account_id}/!{partitionKeyFromQuery:region}/!{partitionKeyFromQuery:webacl}/"
 
     error_output_prefix = "${trim(var.s3_error_output_prefix, "/")}/!{firehose:error-output-type}/"
 

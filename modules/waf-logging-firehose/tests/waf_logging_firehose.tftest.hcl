@@ -32,6 +32,16 @@ run "default_plan_builds_expected_stream_name_and_tags" {
     condition     = aws_kinesis_firehose_delivery_stream.this.tags["owner"] == "security"
     error_message = "User-provided tags should be preserved."
   }
+
+  assert {
+    condition = aws_kinesis_firehose_delivery_stream.this.extended_s3_configuration[0].prefix == "waf/!{partitionKeyFromQuery:year}/!{partitionKeyFromQuery:month}/!{partitionKeyFromQuery:day}/!{partitionKeyFromQuery:hour}/!{partitionKeyFromQuery:account_id}/!{partitionKeyFromQuery:region}/!{partitionKeyFromQuery:webacl}/"
+    error_message = "Success logs should be partitioned as waf/year/month/day/hour/account/region/webacl/."
+  }
+
+  assert {
+    condition     = aws_kinesis_firehose_delivery_stream.this.extended_s3_configuration[0].error_output_prefix == "waf-errors/!{firehose:error-output-type}/"
+    error_message = "Failed delivery should use waf-errors/{error-output-type}/."
+  }
 }
 
 run "custom_prefix_suffix_and_bucket_policy_acl_work" {
