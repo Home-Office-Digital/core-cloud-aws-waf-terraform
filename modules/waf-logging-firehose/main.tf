@@ -81,19 +81,16 @@ data "aws_iam_policy_document" "firehose" {
     resources = ["${aws_cloudwatch_log_group.firehose.arn}:*"]
   }
 
-  dynamic "statement" {
-    for_each = var.s3_kms_key_arn != null ? [1] : []
-    content {
-      sid    = "KmsForS3"
-      effect = "Allow"
-      actions = [
-        "kms:Encrypt",
-        "kms:Decrypt",
-        "kms:GenerateDataKey",
-        "kms:DescribeKey"
-      ]
-      resources = [var.s3_kms_key_arn]
-    }
+  statement {
+    sid    = "KmsForS3AndFirehose"
+    effect = "Allow"
+    actions = [
+      "kms:Encrypt",
+      "kms:Decrypt",
+      "kms:GenerateDataKey",
+      "kms:DescribeKey"
+    ]
+    resources = [var.s3_kms_key_arn]
   }
 }
 
@@ -198,6 +195,12 @@ resource "aws_kinesis_firehose_delivery_stream" "this" {
       log_group_name  = aws_cloudwatch_log_group.firehose.name
       log_stream_name = aws_cloudwatch_log_stream.firehose.name
     }
+  }
+
+  server_side_encryption {
+    enabled  = true
+    key_type = "CUSTOMER_MANAGED_CMK"
+    key_arn  = var.s3_kms_key_arn
   }
 
   tags = local.common_tags

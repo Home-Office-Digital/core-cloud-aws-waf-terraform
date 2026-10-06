@@ -51,13 +51,23 @@ variable "compression_format" {
 }
 
 variable "s3_kms_key_arn" {
-  type    = string
-  default = null
+  description = "CMK ARN for S3 object encryption and Firehose stream encryption."
+  type        = string
+
+  validation {
+    condition     = var.s3_kms_key_arn != null
+    error_message = "s3_kms_key_arn must be set — Firehose and S3 logs must use a CMK."
+  }
 }
 
 variable "firehose_error_log_retention_days" {
   type    = number
-  default = 30
+  default = 365
+
+  validation {
+    condition     = var.firehose_error_log_retention_days >= 365
+    error_message = "firehose_error_log_retention_days must be at least 365."
+  }
 }
 
 variable "enable_put_object_acl" {

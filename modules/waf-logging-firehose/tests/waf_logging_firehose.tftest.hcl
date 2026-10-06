@@ -7,6 +7,7 @@ run "default_plan_builds_expected_stream_name_and_tags" {
     name_prefix               = "platform"
     environment               = "dev"
     destination_s3_bucket_arn = "arn:aws:s3:::waf-log-bucket"
+    s3_kms_key_arn            = "arn:aws:kms:us-east-1:111122223333:key/12345678-1234-1234-1234-123456789012"
     cloudwatch_kms_key_arn    = "arn:aws:kms:us-east-1:111122223333:key/12345678-1234-1234-1234-123456789012"
     tags = {
       owner = "security"
@@ -42,6 +43,19 @@ run "default_plan_builds_expected_stream_name_and_tags" {
     condition     = aws_kinesis_firehose_delivery_stream.this.extended_s3_configuration[0].error_output_prefix == "waf-errors/!{firehose:error-output-type}/"
     error_message = "Failed delivery should use waf-errors/{error-output-type}/."
   }
+
+  assert {
+    condition     = aws_cloudwatch_log_group.firehose.retention_in_days == 365
+    error_message = "Firehose CloudWatch error logs must be retained for at least 1 year."
+  }
+
+  assert {
+    condition = (
+      aws_kinesis_firehose_delivery_stream.this.server_side_encryption[0].enabled &&
+      aws_kinesis_firehose_delivery_stream.this.server_side_encryption[0].key_type == "CUSTOMER_MANAGED_CMK"
+    )
+    error_message = "Firehose stream must be encrypted with a customer managed CMK."
+  }
 }
 
 run "custom_prefix_suffix_and_bucket_policy_acl_work" {
@@ -51,6 +65,7 @@ run "custom_prefix_suffix_and_bucket_policy_acl_work" {
     name_prefix               = "platform"
     environment               = "prod"
     destination_s3_bucket_arn = "arn:aws:s3:::waf-log-bucket"
+    s3_kms_key_arn            = "arn:aws:kms:us-east-1:111122223333:key/12345678-1234-1234-1234-123456789012"
     cloudwatch_kms_key_arn    = "arn:aws:kms:us-east-1:111122223333:key/12345678-1234-1234-1234-123456789012"
     stream_name_prefix        = "aws-waf-logs-shared-"
     stream_name_suffix        = "-primary"
@@ -81,6 +96,7 @@ run "buffer_size_must_be_at_least_64" {
     name_prefix               = "platform"
     environment               = "dev"
     destination_s3_bucket_arn = "arn:aws:s3:::waf-log-bucket"
+    s3_kms_key_arn            = "arn:aws:kms:us-east-1:111122223333:key/12345678-1234-1234-1234-123456789012"
     cloudwatch_kms_key_arn    = "arn:aws:kms:us-east-1:111122223333:key/12345678-1234-1234-1234-123456789012"
     buffer_size_mb            = 32
   }
@@ -95,8 +111,23 @@ run "cloudwatch_kms_key_must_be_set" {
     name_prefix               = "platform"
     environment               = "dev"
     destination_s3_bucket_arn = "arn:aws:s3:::waf-log-bucket"
+    s3_kms_key_arn            = "arn:aws:kms:us-east-1:111122223333:key/12345678-1234-1234-1234-123456789012"
     cloudwatch_kms_key_arn    = null
   }
 
   expect_failures = [var.cloudwatch_kms_key_arn]
+}
+
+run "s3_kms_key_must_be_set" {
+  command = plan
+
+  variables {
+    name_prefix               = "platform"
+    environment               = "dev"
+    destination_s3_bucket_arn = "arn:aws:s3:::waf-log-bucket"
+    s3_kms_key_arn            = null
+    cloudwatch_kms_key_arn    = "arn:aws:kms:us-east-1:111122223333:key/12345678-1234-1234-1234-123456789012"
+  }
+
+  expect_failures = [var.s3_kms_key_arn]
 }
