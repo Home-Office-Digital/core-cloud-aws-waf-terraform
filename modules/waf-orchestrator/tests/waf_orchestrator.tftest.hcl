@@ -301,12 +301,12 @@ run "default_policy_include_account_ids_scopes_slot_and_clears_exclude" {
 
     slot_config = {
       org-default = {
-        policy_selector               = "default"
-        include_account_ids           = ["034034141086"]
-        enable_platform_baseline      = false
-        enable_essential              = false
-        enable_anonymous_ip           = false
-        enable_bot_control            = false
+        policy_selector          = "default"
+        include_account_ids      = ["034034141086"]
+        enable_platform_baseline = false
+        enable_essential         = false
+        enable_anonymous_ip      = false
+        enable_bot_control       = false
       }
       alb-external-blue = {
         policy_selector          = "default_include"
@@ -402,12 +402,12 @@ run "default_policy_include_orgunit_ids_uses_include_map" {
 
     slot_config = {
       org-default = {
-        policy_selector               = "default"
-        include_account_ids           = ["034034141086"]
-        enable_platform_baseline      = false
-        enable_essential              = false
-        enable_anonymous_ip           = false
-        enable_bot_control            = false
+        policy_selector          = "default"
+        include_account_ids      = ["034034141086"]
+        enable_platform_baseline = false
+        enable_essential         = false
+        enable_anonymous_ip      = false
+        enable_bot_control       = false
       }
       alb-external-blue = {
         policy_selector          = "default_include"
@@ -458,7 +458,11 @@ run "optimize_unassociated_web_acl_org_default_fallback_and_slot_override" {
 
     slot_config = {
       org-default = {
-        policy_selector          = "default"
+        policy_selector = "default"
+        resource_type_list = [
+          "AWS::ElasticLoadBalancingV2::LoadBalancer",
+          "AWS::ApiGateway::Stage",
+        ]
         enable_platform_baseline = false
         enable_essential         = false
         enable_anonymous_ip      = false
@@ -509,27 +513,27 @@ run "optimize_unassociated_web_acl_org_default_fallback_and_slot_override" {
   }
 
   assert {
-    condition = jsondecode(output.default_policies["org-default"].managed_service_data).optimizeUnassociatedWebACL == false
+    condition     = jsondecode(output.default_policies["org-default"].managed_service_data).optimizeUnassociatedWebACL == false
     error_message = "org-default must default optimizeUnassociatedWebACL to false so FMS keeps unassociated WebACLs."
   }
 
   assert {
-    condition = jsondecode(output.default_policies["alb-external-green"].managed_service_data).optimizeUnassociatedWebACL == true
+    condition     = jsondecode(output.default_policies["alb-external-green"].managed_service_data).optimizeUnassociatedWebACL == true
     error_message = "Non-blue slots other than org-default must keep optimizeUnassociatedWebACL=true unless overridden."
   }
 
   assert {
-    condition = jsondecode(output.default_policies["alb-internal-blue"].managed_service_data).optimizeUnassociatedWebACL == true
+    condition     = jsondecode(output.default_policies["alb-internal-blue"].managed_service_data).optimizeUnassociatedWebACL == true
     error_message = "slot_config.optimize_unassociated_web_acl must override the blue-slot false fallback."
   }
 
   assert {
-    condition = jsondecode(output.tenant_policies["tenant_a-alb-internal-blue"].managed_service_data).optimizeUnassociatedWebACL == true
+    condition     = jsondecode(output.tenant_policies["tenant_a-alb-internal-blue"].managed_service_data).optimizeUnassociatedWebACL == true
     error_message = "Tenant policies must honour slot_config.optimize_unassociated_web_acl for the same slot."
   }
 
   assert {
-    condition = jsondecode(output.tenant_policies["tenant_a-alb-external-blue"].managed_service_data).optimizeUnassociatedWebACL == false
+    condition     = jsondecode(output.tenant_policies["tenant_a-alb-external-blue"].managed_service_data).optimizeUnassociatedWebACL == false
     error_message = "Tenant policies must use the same org-default/blue false fallback as default policies."
   }
 }

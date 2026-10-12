@@ -55,14 +55,14 @@ output "default_resource_tags_by_slot" {
   description = "Resource tags for default policy attachment. Exclude-mode (org-default) returns exclusion tags; include-mode returns the full opt-in tag set."
   value = {
     for slot in var.slots : slot => (
-      try(var.slot_config[slot].policy_selector, "default_include") == "default"
+      coalesce(try(var.slot_config[slot].policy_selector, null), "default_include") == "default"
       ? {
         # Path C / skip catch-all: resources with this tag are not org-default.
         "waf:coverage" = "custom"
       }
       : {
         "waf:coverage" = "custom"
-        "waf:selector" = try(var.slot_config[slot].policy_selector, "default_include")
+        "waf:selector" = coalesce(try(var.slot_config[slot].policy_selector, null), "default_include")
         "waf:slot"     = slot
       }
     )

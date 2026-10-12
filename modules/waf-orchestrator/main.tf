@@ -60,8 +60,8 @@ locals {
   # Blue slots and org-default stay visible; green stays optimized unless slot_config overrides.
   optimize_unassociated_web_acl_by_slot = {
     for slot in var.slots :
-    slot => try(
-      var.slot_config[slot].optimize_unassociated_web_acl,
+    slot => coalesce(
+      try(var.slot_config[slot].optimize_unassociated_web_acl, null),
       slot == "org-default" || can(regex("-blue$", slot)) ? false : true
     )
   }
@@ -198,12 +198,12 @@ locals {
   ############################################################
   enable_essential_by_slot = {
     for slot in var.slots :
-    slot => try(var.slot_config[slot].enable_essential, true)
+    slot => coalesce(try(var.slot_config[slot].enable_essential, null), true)
   }
 
   enable_platform_baseline_by_slot = {
     for slot in var.slots :
-    slot => try(var.slot_config[slot].enable_platform_baseline, true)
+    slot => coalesce(try(var.slot_config[slot].enable_platform_baseline, null), true)
   }
 
   slots_with_essential = toset([
@@ -534,24 +534,24 @@ module "default_policies" {
   exclude_account_ids = local.default_policy_exclude_account_ids[each.value]
   exclude_orgunit_ids = local.default_policy_exclude_orgunit_ids[each.value]
 
-  policy_selector = try(var.slot_config[each.value].policy_selector, "default_include")
+  policy_selector = coalesce(try(var.slot_config[each.value].policy_selector, null), "default_include")
 
-  resource_type_list = try(
-    var.slot_config[each.value].resource_type_list,
+  resource_type_list = coalesce(
+    try(var.slot_config[each.value].resource_type_list, null),
     [
       "AWS::ElasticLoadBalancingV2::LoadBalancer",
       "AWS::ApiGateway::Stage",
     ]
   )
 
-  enable_core_rule_set = try(var.slot_config[each.value].enable_core_rule_set, var.enable_core_rule_set)
-  enable_ip_reputation = try(var.slot_config[each.value].enable_ip_reputation, var.enable_ip_reputation)
-  enable_anonymous_ip  = try(var.slot_config[each.value].enable_anonymous_ip, var.enable_anonymous_ip)
-  enable_bot_control   = try(var.slot_config[each.value].enable_bot_control, var.enable_bot_control)
-  enable_layer7_ddos   = try(var.slot_config[each.value].enable_layer7_ddos, var.enable_layer7_ddos)
+  enable_core_rule_set = coalesce(try(var.slot_config[each.value].enable_core_rule_set, null), var.enable_core_rule_set)
+  enable_ip_reputation = coalesce(try(var.slot_config[each.value].enable_ip_reputation, null), var.enable_ip_reputation)
+  enable_anonymous_ip  = coalesce(try(var.slot_config[each.value].enable_anonymous_ip, null), var.enable_anonymous_ip)
+  enable_bot_control   = coalesce(try(var.slot_config[each.value].enable_bot_control, null), var.enable_bot_control)
+  enable_layer7_ddos   = coalesce(try(var.slot_config[each.value].enable_layer7_ddos, null), var.enable_layer7_ddos)
 
-  core_rule_set_override_action = try(
-    var.slot_config[each.value].core_rule_set_override_action,
+  core_rule_set_override_action = coalesce(
+    try(var.slot_config[each.value].core_rule_set_override_action, null),
     "NONE"
   )
 
@@ -599,21 +599,21 @@ module "tenant_policies" {
   include_account_ids = try(var.tenants[each.value.tenant].include_account_ids, [])
   include_orgunit_ids = try(var.tenants[each.value.tenant].include_orgunit_ids, [])
 
-  resource_type_list = try(
-    var.slot_config[each.value.slot].resource_type_list,
+  resource_type_list = coalesce(
+    try(var.slot_config[each.value.slot].resource_type_list, null),
     [
       "AWS::ElasticLoadBalancingV2::LoadBalancer",
       "AWS::ApiGateway::Stage",
     ]
   )
 
-  enable_core_rule_set = try(var.slot_config[each.value.slot].enable_core_rule_set, var.enable_core_rule_set)
-  enable_ip_reputation = try(var.slot_config[each.value.slot].enable_ip_reputation, var.enable_ip_reputation)
-  enable_anonymous_ip  = try(var.slot_config[each.value.slot].enable_anonymous_ip, var.enable_anonymous_ip)
-  enable_layer7_ddos   = try(var.slot_config[each.value.slot].enable_layer7_ddos, var.enable_layer7_ddos)
+  enable_core_rule_set = coalesce(try(var.slot_config[each.value.slot].enable_core_rule_set, null), var.enable_core_rule_set)
+  enable_ip_reputation = coalesce(try(var.slot_config[each.value.slot].enable_ip_reputation, null), var.enable_ip_reputation)
+  enable_anonymous_ip  = coalesce(try(var.slot_config[each.value.slot].enable_anonymous_ip, null), var.enable_anonymous_ip)
+  enable_layer7_ddos   = coalesce(try(var.slot_config[each.value.slot].enable_layer7_ddos, null), var.enable_layer7_ddos)
 
-  core_rule_set_override_action = try(
-    var.slot_config[each.value.slot].core_rule_set_override_action,
+  core_rule_set_override_action = coalesce(
+    try(var.slot_config[each.value.slot].core_rule_set_override_action, null),
     "NONE"
   )
 
@@ -621,7 +621,7 @@ module "tenant_policies" {
 
   enable_bot_control = try(
     var.tenants[each.value.tenant].enable_bot_control,
-    try(var.slot_config[each.value.slot].enable_bot_control, var.enable_bot_control)
+    coalesce(try(var.slot_config[each.value.slot].enable_bot_control, null), var.enable_bot_control)
   )
 
   antiddos_sensitivity_to_block = var.antiddos_sensitivity_to_block

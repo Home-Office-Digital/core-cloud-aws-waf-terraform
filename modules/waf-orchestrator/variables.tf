@@ -26,9 +26,25 @@ variable "slots" {
 }
 
 variable "slot_config" {
-  description = "Per-slot overrides. Optional include_account_ids / include_orgunit_ids put that slot on include_map. Optional exclude_account_ids / exclude_orgunit_ids add to exclude_map. FMS include_map and exclude_map are mutually exclusive: any include IDs omit all excludes for that slot."
-  type        = map(any)
-  default     = {}
+  description = "Per-slot overrides. Optional include_account_ids / include_orgunit_ids put that slot on include_map. Optional exclude_account_ids / exclude_orgunit_ids add to exclude_map. FMS include_map and exclude_map are mutually exclusive: any include IDs omit all excludes for that slot. Attributes are optional so slots need not share the same keys."
+  type = map(object({
+    policy_selector               = optional(string)
+    include_account_ids           = optional(list(string), [])
+    include_orgunit_ids           = optional(list(string), [])
+    exclude_account_ids           = optional(list(string), [])
+    exclude_orgunit_ids           = optional(list(string), [])
+    resource_type_list            = optional(list(string))
+    enable_platform_baseline      = optional(bool)
+    enable_essential              = optional(bool)
+    enable_layer7_ddos            = optional(bool)
+    enable_core_rule_set          = optional(bool)
+    core_rule_set_override_action = optional(string)
+    enable_ip_reputation          = optional(bool)
+    enable_anonymous_ip           = optional(bool)
+    enable_bot_control            = optional(bool)
+    optimize_unassociated_web_acl = optional(bool)
+  }))
+  default = {}
 }
 
 ############################################################
