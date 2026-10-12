@@ -19,8 +19,9 @@ output "tenant_policies" {
   value = {
     for k, m in module.tenant_policies :
     k => {
-      policy_id   = try(m.policy_id, null)
-      policy_name = try(m.policy_name, null)
+      policy_id            = try(m.policy_id, null)
+      policy_name          = try(m.policy_name, null)
+      managed_service_data = m.managed_service_data
     }
   }
 }

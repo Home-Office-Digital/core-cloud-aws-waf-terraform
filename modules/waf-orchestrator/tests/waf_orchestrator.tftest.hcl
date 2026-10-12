@@ -1,4 +1,18 @@
-mock_provider "aws" {}
+mock_provider "aws" {
+  mock_resource "aws_wafv2_ip_set" {
+    defaults = {
+      arn = "arn:aws:wafv2:eu-west-2:111122223333:regional/ipset/mock/11111111-1111-1111-1111-111111111111"
+      id  = "11111111-1111-1111-1111-111111111111"
+    }
+  }
+
+  mock_resource "aws_wafv2_rule_group" {
+    defaults = {
+      arn = "arn:aws:wafv2:eu-west-2:111122223333:regional/rulegroup/mock/22222222-2222-2222-2222-222222222222"
+      id  = "22222222-2222-2222-2222-222222222222"
+    }
+  }
+}
 
 run "plan_builds_default_and_tenant_outputs" {
   command = plan
@@ -440,7 +454,7 @@ run "optimize_unassociated_web_acl_org_default_fallback_and_slot_override" {
     name_prefix    = "acme"
     environment    = "prod"
     aws_account_id = "111122223333"
-    slots          = ["org-default", "alb-external-green", "alb-internal-blue"]
+    slots          = ["org-default", "alb-external-green", "alb-internal-blue", "alb-external-blue"]
 
     slot_config = {
       org-default = {
@@ -461,6 +475,11 @@ run "optimize_unassociated_web_acl_org_default_fallback_and_slot_override" {
         enable_essential              = true
         optimize_unassociated_web_acl = true
       }
+      alb-external-blue = {
+        policy_selector          = "default_include"
+        enable_platform_baseline = true
+        enable_essential         = true
+      }
     }
 
     platform = {
@@ -468,7 +487,25 @@ run "optimize_unassociated_web_acl_org_default_fallback_and_slot_override" {
       baseline  = {}
     }
 
-    tenants = {}
+    tenants = {
+      tenant_a = {
+        enabled             = true
+        enable_bot_control  = false
+        tags                = {}
+        include_account_ids = ["111122223333"]
+        ip_sets = {
+          alb-internal-blue = {
+            allowlist = ["203.0.113.10/32"]
+            blocklist = []
+          }
+          alb-external-blue = {
+            allowlist = ["203.0.113.11/32"]
+            blocklist = []
+          }
+        }
+        geo = {}
+      }
+    }
   }
 
   assert {
@@ -484,5 +521,15 @@ run "optimize_unassociated_web_acl_org_default_fallback_and_slot_override" {
   assert {
     condition = jsondecode(output.default_policies["alb-internal-blue"].managed_service_data).optimizeUnassociatedWebACL == true
     error_message = "slot_config.optimize_unassociated_web_acl must override the blue-slot false fallback."
+  }
+
+  assert {
+    condition = jsondecode(output.tenant_policies["tenant_a-alb-internal-blue"].managed_service_data).optimizeUnassociatedWebACL == true
+    error_message = "Tenant policies must honour slot_config.optimize_unassociated_web_acl for the same slot."
+  }
+
+  assert {
+    condition = jsondecode(output.tenant_policies["tenant_a-alb-external-blue"].managed_service_data).optimizeUnassociatedWebACL == false
+    error_message = "Tenant policies must use the same org-default/blue false fallback as default policies."
   }
 }

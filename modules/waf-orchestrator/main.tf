@@ -56,6 +56,16 @@ locals {
     )
   }
 
+  # Console: Manage unassociated web ACLs. false = Disabled (keep WebACL with no match).
+  # Blue slots and org-default stay visible; green stays optimized unless slot_config overrides.
+  optimize_unassociated_web_acl_by_slot = {
+    for slot in var.slots :
+    slot => try(
+      var.slot_config[slot].optimize_unassociated_web_acl,
+      slot == "org-default" || can(regex("-blue$", slot)) ? false : true
+    )
+  }
+
   default_policy_uses_include_map = {
     for slot in var.slots :
     slot => (
@@ -560,12 +570,7 @@ module "default_policies" {
 
   waf_log_destination_arn = try(var.waf_log_destination_arn_by_slot[each.value], null)
 
-  # Console: Manage unassociated web ACLs. false = Disabled (keep WebACL in-account with no match).
-  # Blue slots and org-default stay visible for manual association; green stays optimized.
-  optimize_unassociated_web_acl = try(
-    var.slot_config[each.value].optimize_unassociated_web_acl,
-    each.value == "org-default" || can(regex("-blue$", each.value)) ? false : true
-  )
+  optimize_unassociated_web_acl = local.optimize_unassociated_web_acl_by_slot[each.value]
 
   tags = var.tags
 }
@@ -630,7 +635,7 @@ module "tenant_policies" {
 
   waf_log_destination_arn = try(var.waf_log_destination_arn_by_slot[each.value.slot], null)
 
-  optimize_unassociated_web_acl = can(regex("-blue$", each.value)) ? false : true
+  optimize_unassociated_web_acl = local.optimize_unassociated_web_acl_by_slot[each.value.slot]
 
   tags = var.tags
 }
