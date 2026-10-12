@@ -560,7 +560,12 @@ module "default_policies" {
 
   waf_log_destination_arn = try(var.waf_log_destination_arn_by_slot[each.value], null)
 
-  optimize_unassociated_web_acl = can(regex("-blue$", each.value)) ? false : true
+  # Console: Manage unassociated web ACLs. false = Disabled (keep WebACL in-account with no match).
+  # Blue slots and org-default stay visible for manual association; green stays optimized.
+  optimize_unassociated_web_acl = try(
+    var.slot_config[each.value].optimize_unassociated_web_acl,
+    each.value == "org-default" || can(regex("-blue$", each.value)) ? false : true
+  )
 
   tags = var.tags
 }

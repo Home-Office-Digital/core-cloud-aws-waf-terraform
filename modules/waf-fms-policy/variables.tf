@@ -212,7 +212,7 @@ variable "bot_control_inspection_level" {
 }
 
 variable "optimize_unassociated_web_acl" {
-  description = "When false, FMS pre-creates WebACLs in all in-scope accounts even with no matching resources. Set to false to make WebACLs visible for manual association (e.g. Verified Access)"
+  description = "FMS 'Manage unassociated web ACLs'. When false (Disabled), FMS keeps a WebACL in every in-scope account even with no matching ALB/API Gateway. When true (Enabled), unused WebACLs are not created."
   type        = bool
   default     = false
 }
