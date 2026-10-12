@@ -432,3 +432,57 @@ run "default_policy_include_orgunit_ids_uses_include_map" {
     error_message = "Exclude-map slots should ignore platform include lists and keep exclude_map."
   }
 }
+
+run "optimize_unassociated_web_acl_org_default_fallback_and_slot_override" {
+  command = apply
+
+  variables {
+    name_prefix    = "acme"
+    environment    = "prod"
+    aws_account_id = "111122223333"
+    slots          = ["org-default", "alb-external-green", "alb-internal-blue"]
+
+    slot_config = {
+      org-default = {
+        policy_selector          = "default"
+        enable_platform_baseline = false
+        enable_essential         = false
+        enable_anonymous_ip      = false
+        enable_bot_control       = false
+      }
+      alb-external-green = {
+        policy_selector          = "default_include"
+        enable_platform_baseline = true
+        enable_essential         = true
+      }
+      alb-internal-blue = {
+        policy_selector               = "default_include"
+        enable_platform_baseline      = true
+        enable_essential              = true
+        optimize_unassociated_web_acl = true
+      }
+    }
+
+    platform = {
+      emergency = {}
+      baseline  = {}
+    }
+
+    tenants = {}
+  }
+
+  assert {
+    condition = jsondecode(output.default_policies["org-default"].managed_service_data).optimizeUnassociatedWebACL == false
+    error_message = "org-default must default optimizeUnassociatedWebACL to false so FMS keeps unassociated WebACLs."
+  }
+
+  assert {
+    condition = jsondecode(output.default_policies["alb-external-green"].managed_service_data).optimizeUnassociatedWebACL == true
+    error_message = "Non-blue slots other than org-default must keep optimizeUnassociatedWebACL=true unless overridden."
+  }
+
+  assert {
+    condition = jsondecode(output.default_policies["alb-internal-blue"].managed_service_data).optimizeUnassociatedWebACL == true
+    error_message = "slot_config.optimize_unassociated_web_acl must override the blue-slot false fallback."
+  }
+}

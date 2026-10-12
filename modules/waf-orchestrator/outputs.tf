@@ -3,12 +3,13 @@ output "default_policies" {
   value = {
     for k, m in module.default_policies :
     k => {
-      policy_id           = try(m.policy_id, null)
-      policy_name         = try(m.policy_name, null)
-      include_account_ids = try(m.include_account_ids, [])
-      include_orgunit_ids = try(m.include_orgunit_ids, [])
-      exclude_account_ids = try(m.exclude_account_ids, [])
-      exclude_orgunit_ids = try(m.exclude_orgunit_ids, [])
+      policy_id            = try(m.policy_id, null)
+      policy_name          = try(m.policy_name, null)
+      include_account_ids  = try(m.include_account_ids, [])
+      include_orgunit_ids  = try(m.include_orgunit_ids, [])
+      exclude_account_ids  = try(m.exclude_account_ids, [])
+      exclude_orgunit_ids  = try(m.exclude_orgunit_ids, [])
+      managed_service_data = m.managed_service_data
     }
   }
 }
