@@ -635,7 +635,14 @@ module "tenant_policies" {
 
   waf_log_destination_arn = try(var.waf_log_destination_arn_by_slot[each.value.slot], null)
 
-  optimize_unassociated_web_acl = local.optimize_unassociated_web_acl_by_slot[each.value.slot]
+  # Keep the historic tenant fallback (true). Regex used to run on the tenant
+  # matrix object, so can(...) was always false and every tenant policy was true.
+  # Honour slot_config.optimize_unassociated_web_acl when set; do not inherit
+  # the platform org-default/blue false fallback.
+  optimize_unassociated_web_acl = coalesce(
+    try(var.slot_config[each.value.slot].optimize_unassociated_web_acl, null),
+    true
+  )
 
   tags = var.tags
 }

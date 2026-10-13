@@ -528,12 +528,17 @@ run "optimize_unassociated_web_acl_org_default_fallback_and_slot_override" {
   }
 
   assert {
+    condition     = jsondecode(output.default_policies["alb-external-blue"].managed_service_data).optimizeUnassociatedWebACL == false
+    error_message = "Platform default *-blue slots must keep optimizeUnassociatedWebACL=false unless overridden."
+  }
+
+  assert {
     condition     = jsondecode(output.tenant_policies["tenant_a-alb-internal-blue"].managed_service_data).optimizeUnassociatedWebACL == true
     error_message = "Tenant policies must honour slot_config.optimize_unassociated_web_acl for the same slot."
   }
 
   assert {
-    condition     = jsondecode(output.tenant_policies["tenant_a-alb-external-blue"].managed_service_data).optimizeUnassociatedWebACL == false
-    error_message = "Tenant policies must use the same org-default/blue false fallback as default policies."
+    condition     = jsondecode(output.tenant_policies["tenant_a-alb-external-blue"].managed_service_data).optimizeUnassociatedWebACL == true
+    error_message = "Tenant policies without a slot override must keep optimizeUnassociatedWebACL=true, including *-blue slots."
   }
 }
