@@ -3,12 +3,13 @@ output "default_policies" {
   value = {
     for k, m in module.default_policies :
     k => {
-      policy_id           = try(m.policy_id, null)
-      policy_name         = try(m.policy_name, null)
-      include_account_ids = try(m.include_account_ids, [])
-      include_orgunit_ids = try(m.include_orgunit_ids, [])
-      exclude_account_ids = try(m.exclude_account_ids, [])
-      exclude_orgunit_ids = try(m.exclude_orgunit_ids, [])
+      policy_id            = try(m.policy_id, null)
+      policy_name          = try(m.policy_name, null)
+      include_account_ids  = try(m.include_account_ids, [])
+      include_orgunit_ids  = try(m.include_orgunit_ids, [])
+      exclude_account_ids  = try(m.exclude_account_ids, [])
+      exclude_orgunit_ids  = try(m.exclude_orgunit_ids, [])
+      managed_service_data = m.managed_service_data
     }
   }
 }
@@ -18,8 +19,9 @@ output "tenant_policies" {
   value = {
     for k, m in module.tenant_policies :
     k => {
-      policy_id   = try(m.policy_id, null)
-      policy_name = try(m.policy_name, null)
+      policy_id            = try(m.policy_id, null)
+      policy_name          = try(m.policy_name, null)
+      managed_service_data = m.managed_service_data
     }
   }
 }
@@ -53,14 +55,14 @@ output "default_resource_tags_by_slot" {
   description = "Resource tags for default policy attachment. Exclude-mode (org-default) returns exclusion tags; include-mode returns the full opt-in tag set."
   value = {
     for slot in var.slots : slot => (
-      try(var.slot_config[slot].policy_selector, "default_include") == "default"
+      coalesce(try(var.slot_config[slot].policy_selector, null), "default_include") == "default"
       ? {
         # Path C / skip catch-all: resources with this tag are not org-default.
         "waf:coverage" = "custom"
       }
       : {
         "waf:coverage" = "custom"
-        "waf:selector" = try(var.slot_config[slot].policy_selector, "default_include")
+        "waf:selector" = coalesce(try(var.slot_config[slot].policy_selector, null), "default_include")
         "waf:slot"     = slot
       }
     )

@@ -21,3 +21,8 @@ output "exclude_account_ids" {
 output "exclude_orgunit_ids" {
   value = var.exclude_orgunit_ids
 }
+
+output "managed_service_data" {
+  description = "Generated FMS WAFv2 managed_service_data JSON."
+  value       = local.managed_service_data
+}

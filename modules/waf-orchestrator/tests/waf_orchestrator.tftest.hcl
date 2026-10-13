@@ -1,4 +1,18 @@
-mock_provider "aws" {}
+mock_provider "aws" {
+  mock_resource "aws_wafv2_ip_set" {
+    defaults = {
+      arn = "arn:aws:wafv2:eu-west-2:111122223333:regional/ipset/mock/11111111-1111-1111-1111-111111111111"
+      id  = "11111111-1111-1111-1111-111111111111"
+    }
+  }
+
+  mock_resource "aws_wafv2_rule_group" {
+    defaults = {
+      arn = "arn:aws:wafv2:eu-west-2:111122223333:regional/rulegroup/mock/22222222-2222-2222-2222-222222222222"
+      id  = "22222222-2222-2222-2222-222222222222"
+    }
+  }
+}
 
 run "plan_builds_default_and_tenant_outputs" {
   command = plan
@@ -287,12 +301,12 @@ run "default_policy_include_account_ids_scopes_slot_and_clears_exclude" {
 
     slot_config = {
       org-default = {
-        policy_selector               = "default"
-        include_account_ids           = ["034034141086"]
-        enable_platform_baseline      = false
-        enable_essential              = false
-        enable_anonymous_ip           = false
-        enable_bot_control            = false
+        policy_selector          = "default"
+        include_account_ids      = ["034034141086"]
+        enable_platform_baseline = false
+        enable_essential         = false
+        enable_anonymous_ip      = false
+        enable_bot_control       = false
       }
       alb-external-blue = {
         policy_selector          = "default_include"
@@ -388,12 +402,12 @@ run "default_policy_include_orgunit_ids_uses_include_map" {
 
     slot_config = {
       org-default = {
-        policy_selector               = "default"
-        include_account_ids           = ["034034141086"]
-        enable_platform_baseline      = false
-        enable_essential              = false
-        enable_anonymous_ip           = false
-        enable_bot_control            = false
+        policy_selector          = "default"
+        include_account_ids      = ["034034141086"]
+        enable_platform_baseline = false
+        enable_essential         = false
+        enable_anonymous_ip      = false
+        enable_bot_control       = false
       }
       alb-external-blue = {
         policy_selector          = "default_include"
@@ -430,5 +444,107 @@ run "default_policy_include_orgunit_ids_uses_include_map" {
       contains(output.default_policies["alb-external-blue"].exclude_orgunit_ids, "ou-82pp-yuxw4n8j")
     )
     error_message = "Exclude-map slots should ignore platform include lists and keep exclude_map."
+  }
+}
+
+run "optimize_unassociated_web_acl_org_default_fallback_and_slot_override" {
+  command = apply
+
+  variables {
+    name_prefix    = "acme"
+    environment    = "prod"
+    aws_account_id = "111122223333"
+    slots          = ["org-default", "alb-external-green", "alb-internal-blue", "alb-external-blue", "alb-internal-green"]
+
+    slot_config = {
+      org-default = {
+        policy_selector = "default"
+        resource_type_list = [
+          "AWS::ElasticLoadBalancingV2::LoadBalancer",
+          "AWS::ApiGateway::Stage",
+        ]
+        enable_platform_baseline = false
+        enable_essential         = false
+        enable_anonymous_ip      = false
+        enable_bot_control       = false
+      }
+      alb-external-green = {
+        policy_selector          = "default_include"
+        enable_platform_baseline = true
+        enable_essential         = true
+      }
+      alb-internal-blue = {
+        policy_selector               = "default_include"
+        enable_platform_baseline      = true
+        enable_essential              = true
+        optimize_unassociated_web_acl = true
+      }
+      alb-external-blue = {
+        policy_selector          = "default_include"
+        enable_platform_baseline = true
+        enable_essential         = true
+      }
+      alb-internal-green = {
+        policy_selector               = "default_include"
+        enable_platform_baseline      = true
+        enable_essential              = true
+        optimize_unassociated_web_acl = false
+      }
+    }
+
+    platform = {
+      emergency = {}
+      baseline  = {}
+    }
+
+    tenants = {
+      tenant_a = {
+        enabled             = true
+        enable_bot_control  = false
+        tags                = {}
+        include_account_ids = ["111122223333"]
+        ip_sets = {
+          alb-external-blue = {
+            allowlist = ["203.0.113.11/32"]
+            blocklist = []
+          }
+          alb-internal-green = {
+            allowlist = ["203.0.113.12/32"]
+            blocklist = []
+          }
+        }
+        geo = {}
+      }
+    }
+  }
+
+  assert {
+    condition     = jsondecode(output.default_policies["org-default"].managed_service_data).optimizeUnassociatedWebACL == false
+    error_message = "org-default must default optimizeUnassociatedWebACL to false so FMS keeps unassociated WebACLs."
+  }
+
+  assert {
+    condition     = jsondecode(output.default_policies["alb-external-green"].managed_service_data).optimizeUnassociatedWebACL == true
+    error_message = "Non-blue slots other than org-default must keep optimizeUnassociatedWebACL=true unless overridden."
+  }
+
+  assert {
+    condition     = jsondecode(output.default_policies["alb-internal-blue"].managed_service_data).optimizeUnassociatedWebACL == true
+    error_message = "slot_config.optimize_unassociated_web_acl must override the blue-slot false fallback."
+  }
+
+  assert {
+    condition     = jsondecode(output.default_policies["alb-external-blue"].managed_service_data).optimizeUnassociatedWebACL == false
+    error_message = "Platform default *-blue slots must keep optimizeUnassociatedWebACL=false unless overridden."
+  }
+
+  assert {
+    condition     = jsondecode(output.tenant_policies["tenant_a-alb-internal-green"].managed_service_data).optimizeUnassociatedWebACL == false
+    error_message = "Tenant policies must honour slot_config.optimize_unassociated_web_acl=false rather than the tenant true fallback."
+  }
+
+  assert {
+    condition     = jsondecode(output.tenant_policies["tenant_a-alb-external-blue"].managed_service_data).optimizeUnassociatedWebACL == true
+    error_message = "Tenant policies without a slot override must keep optimizeUnassociatedWebACL=true, including *-blue slots."
   }
 }
