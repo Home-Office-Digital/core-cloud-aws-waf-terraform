@@ -454,7 +454,7 @@ run "optimize_unassociated_web_acl_org_default_fallback_and_slot_override" {
     name_prefix    = "acme"
     environment    = "prod"
     aws_account_id = "111122223333"
-    slots          = ["org-default", "alb-external-green", "alb-internal-blue", "alb-external-blue"]
+    slots          = ["org-default", "alb-external-green", "alb-internal-blue", "alb-external-blue", "alb-internal-green"]
 
     slot_config = {
       org-default = {
@@ -484,6 +484,12 @@ run "optimize_unassociated_web_acl_org_default_fallback_and_slot_override" {
         enable_platform_baseline = true
         enable_essential         = true
       }
+      alb-internal-green = {
+        policy_selector               = "default_include"
+        enable_platform_baseline      = true
+        enable_essential              = true
+        optimize_unassociated_web_acl = false
+      }
     }
 
     platform = {
@@ -498,12 +504,12 @@ run "optimize_unassociated_web_acl_org_default_fallback_and_slot_override" {
         tags                = {}
         include_account_ids = ["111122223333"]
         ip_sets = {
-          alb-internal-blue = {
-            allowlist = ["203.0.113.10/32"]
-            blocklist = []
-          }
           alb-external-blue = {
             allowlist = ["203.0.113.11/32"]
+            blocklist = []
+          }
+          alb-internal-green = {
+            allowlist = ["203.0.113.12/32"]
             blocklist = []
           }
         }
@@ -533,8 +539,8 @@ run "optimize_unassociated_web_acl_org_default_fallback_and_slot_override" {
   }
 
   assert {
-    condition     = jsondecode(output.tenant_policies["tenant_a-alb-internal-blue"].managed_service_data).optimizeUnassociatedWebACL == true
-    error_message = "Tenant policies must honour slot_config.optimize_unassociated_web_acl for the same slot."
+    condition     = jsondecode(output.tenant_policies["tenant_a-alb-internal-green"].managed_service_data).optimizeUnassociatedWebACL == false
+    error_message = "Tenant policies must honour slot_config.optimize_unassociated_web_acl=false rather than the tenant true fallback."
   }
 
   assert {
